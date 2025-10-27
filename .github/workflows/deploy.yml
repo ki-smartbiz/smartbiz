@@ -19,7 +19,6 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      # --- Preflight: Secrets vorhanden? (bricht sauber ab, wenn was fehlt) ---
       - name: Check required secrets
         run: |
           missing=""
@@ -32,7 +31,6 @@ jobs:
           [ -z "${{ secrets.FTP_REMOTE_DIR }}" ] && missing="${missing} FTP_REMOTE_DIR"
           if [ -n "$missing" ]; then
             echo "❌ Fehlende Secrets:${missing}"
-            echo "→ Repo Settings → Secrets and variables → Actions → add secrets (genau so benennen)."
             exit 1
           fi
 
@@ -47,28 +45,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build (Vite)
+      - name: Build project
         env:
           NODE_ENV: production
         run: npm run build
 
-      # Optional: Artefakt sichern (zur Not manuell runterladen)
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
         with:
           name: dist
-          path: dist
+          path: dist/
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: ${{ secrets.FTP_SERVER }}            # z.B. w0057980.kasserver.com
-          username: ${{ secrets.FTP_USERNAME }}        # z.B. f017c924
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
-          local-dir: dist
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}    # z.B. /ai.ki-smartbiz.de/
+          local-dir: dist/               # ✅ Fix: Slash am Ende!
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           dangerous-clean-slate: false
           exclude: |
             **/.git*
