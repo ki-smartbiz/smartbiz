@@ -65,7 +65,7 @@ jobs:
           protocol: ftps
           port: 21
           local-dir: dist/               # ✅ Fix: Slash am Ende!
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          server-dir: ./
           dangerous-clean-slate: false
           exclude: |
             **/.git*
