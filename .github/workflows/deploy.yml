@@ -1,12 +1,14 @@
-name: Build & Deploy to All-Inkl
+name: SmartBiz CI/CD
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -15,6 +17,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+
+      # --- Preflight: Secrets vorhanden? (bricht sauber ab, wenn was fehlt) ---
+      - name: Check required secrets
+        run: |
+          missing=""
+          [ -z "${{ secrets.VITE_SUPABASE_URL }}" ] && missing="${missing} VITE_SUPABASE_URL"
+          [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ] && missing="${missing} VITE_SUPABASE_ANON_KEY"
+          [ -z "${{ secrets.VITE_PROXY_URL }}" ] && missing="${missing} VITE_PROXY_URL"
+          [ -z "${{ secrets.FTP_SERVER }}" ] && missing="${missing} FTP_SERVER"
+          [ -z "${{ secrets.FTP_USERNAME }}" ] && missing="${missing} FTP_USERNAME"
+          [ -z "${{ secrets.FTP_PASSWORD }}" ] && missing="${missing} FTP_PASSWORD"
+          [ -z "${{ secrets.FTP_REMOTE_DIR }}" ] && missing="${missing} FTP_REMOTE_DIR"
+          if [ -n "$missing" ]; then
+            echo "❌ Fehlende Secrets:${missing}"
+            echo "→ Repo Settings → Secrets and variables → Actions → add secrets (genau so benennen)."
+            exit 1
+          fi
 
       - name: Create .env.production
         run: |
@@ -27,19 +47,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build (Vite)
+        env:
+          NODE_ENV: production
         run: npm run build
+
+      # Optional: Artefakt sichern (zur Not manuell runterladen)
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
 
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
+          server: ${{ secrets.FTP_SERVER }}            # z.B. w0057980.kasserver.com
+          username: ${{ secrets.FTP_USERNAME }}        # z.B. f017c924
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
           local-dir: dist
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}    # z.B. /ai.ki-smartbiz.de/
           dangerous-clean-slate: false
           exclude: |
             **/.git*
@@ -48,4 +77,3 @@ jobs:
             **/src/**
             **/package*.json
             **/vite.config.*
-
