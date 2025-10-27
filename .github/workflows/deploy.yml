@@ -30,14 +30,22 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Deploy via FTP
+            - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
+          port: 21
           local-dir: dist
           server-dir: ${{ secrets.FTP_REMOTE_DIR }}
-          passive: true
           dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/node_modules/**
+            **/src/**
+            **/package*.json
+            **/vite.config.*
+
