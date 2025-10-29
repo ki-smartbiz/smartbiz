@@ -96,37 +96,57 @@ function Header({ userEmail, isAdmin, onNav, onLogout }) {
 function Login({ onSuccess }) {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
+  const [mode, setMode] = useState("login"); // 'login' | 'signup'
   const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault();
-    setErr("");
-    setLoading(true);
+    setErr(""); setMsg(""); setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: pw,
+        email, password: pw,
       });
       if (error) throw error;
       onSuccess?.(data?.user || null);
     } catch (e) {
       setErr(e.message || "Login fehlgeschlagen.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
+
+  async function handleSignup(e) {
+    e.preventDefault();
+    setErr(""); setMsg(""); setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: pw,
+        options: { emailRedirectTo: window.location.origin }, // oder deine Prod-URL
+      });
+      if (error) throw error;
+
+      // Wenn E-Mail-Bestätigung aus: User ist eingeloggt -> reload
+      if (data?.user && !data?.session) {
+        setMsg("Bestätigungs-E-Mail gesendet. Bitte Postfach prüfen.");
+      } else {
+        onSuccess?.(data?.user || null);
+      }
+    } catch (e) {
+      setErr(e.message || "Registrierung fehlgeschlagen.");
+    } finally { setLoading(false); }
+  }
+
+  const submit = mode === "login" ? handleLogin : handleSignup;
 
   return (
     <div className="min-h-screen grid place-items-center bg-gray-50">
-      <form
-        onSubmit={handleLogin}
-        className="w-full max-w-sm bg-white p-6 rounded-2xl border"
-      >
-        <h1 className="text-lg font-semibold">Login</h1>
+      <form onSubmit={submit} className="w-full max-w-sm bg-white p-6 rounded-2xl border">
+        <h1 className="text-lg font-semibold">{mode === "login" ? "Login" : "Registrieren"}</h1>
         <p className="text-sm text-gray-600 mt-1">
-          Melde dich mit deinem Account an.
+          {mode === "login" ? "Melde dich mit deinem Account an." : "Erstelle deinen Account."}
         </p>
+
         <div className="mt-4 space-y-3">
           <div>
             <label className="text-sm">E-Mail</label>
@@ -146,13 +166,43 @@ function Login({ onSuccess }) {
               value={pw}
               onChange={(e) => setPw(e.target.value)}
               required
+              minLength={6}
             />
           </div>
         </div>
+
         {err && <p className="text-red-600 text-sm mt-3">{err}</p>}
+        {msg && <p className="text-green-600 text-sm mt-3">{msg}</p>}
+
         <Button className="mt-4 w-full" disabled={loading}>
-          {loading ? "Login…" : "Einloggen"}
+          {loading ? (mode === "login" ? "Login…" : "Registriere…") : (mode === "login" ? "Einloggen" : "Registrieren")}
         </Button>
+
+        <div className="text-sm text-gray-600 mt-4 text-center">
+          {mode === "login" ? (
+            <>
+              Kein Account?{" "}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => { setMode("signup"); setErr(""); setMsg(""); }}
+              >
+                Jetzt registrieren
+              </button>
+            </>
+          ) : (
+            <>
+              Bereits Account?{" "}
+              <button
+                type="button"
+                className="underline"
+                onClick={() => { setMode("login"); setErr(""); setMsg(""); }}
+              >
+                Hier einloggen
+              </button>
+            </>
+          )}
+        </div>
       </form>
     </div>
   );
