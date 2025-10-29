@@ -1,4 +1,4 @@
-// src/pages/Admin.jsx
+// src/page/Admin.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient"; // <-- KORREKT relativ
 
