@@ -1,6 +1,6 @@
 // src/pages/Admin.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { supabase } from "../lib/supabaseClient"
+import { supabase } from "src/lib/supabaseClient"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
