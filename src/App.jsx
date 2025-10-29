@@ -1,522 +1,581 @@
-// src/App.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
-import Admin from "./pages/admin.jsx";
+import Admin from "./pages/admin";
 
-// -------------------- kleine UI-Helfer --------------------
-function Button({ className = "", children, ...props }) {
+/**
+ * Sehr simpler Card-Wrapper, um shadcn/ui zu vermeiden.
+ */
+function Card({ title, children, className = "" }) {
   return (
-    <button
-      className={
-        "inline-flex items-center justify-center rounded-lg bg-black text-white px-4 py-2 text-sm hover:opacity-90 disabled:opacity-60 " +
-        className
-      }
-      {...props}
-    >
+    <div className={`rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 ${className}`}>
+      {title ? <h2 className="text-lg font-semibold mb-3">{title}</h2> : null}
       {children}
-    </button>
-  );
-}
-function OutlineButton({ className = "", children, ...props }) {
-  return (
-    <button
-      className={
-        "inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-60 " +
-        className
-      }
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-function Card({ children, className = "" }) {
-  return (
-    <div className={"rounded-2xl border bg-white " + className}>{children}</div>
-  );
-}
-function CardHeader({ title, subtitle }) {
-  return (
-    <div className="p-4 border-b">
-      <h3 className="text-base font-semibold">{title}</h3>
-      {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
     </div>
   );
 }
-function CardBody({ children, className = "" }) {
-  return <div className={"p-4 " + className}>{children}</div>;
+
+/**
+ * Auth-Helpers
+ */
+async function loginWithPassword(emailRaw, password) {
+  const email = (emailRaw || "").trim().toLowerCase();
+  return supabase.auth.signInWithPassword({ email, password });
 }
-function Input({ className = "", ...props }) {
+
+async function registerWithPassword(emailRaw, password) {
+  const email = (emailRaw || "").trim().toLowerCase();
+  // Falls E-Mail-Confirmation AUS ist, ist Login sofort erlaubt.
+  return supabase.auth.signUp({ email, password });
+}
+
+async function sendReset(emailRaw) {
+  const email = (emailRaw || "").trim().toLowerCase();
+  // Supabase nutzt die Projekt-Einstellung für Redirect-URL (SITE URL / Additional)
+  // Optional könntest du hier eine explizite redirectTo-URL setzen.
+  return supabase.auth.resetPasswordForEmail(email);
+}
+
+function LoadingScreen() {
   return (
-    <input
-      className={
-        "w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/10 " +
-        className
-      }
-      {...props}
-    />
+    <div className="min-h-screen grid place-items-center bg-neutral-950 text-neutral-100">
+      <div className="animate-pulse text-sm text-neutral-400">Lade…</div>
+    </div>
   );
 }
 
-// -------------------- Login/Signup/Reset --------------------
-function Login({ onSuccess }) {
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [pw2, setPw2] = useState("");
-  const [mode, setMode] = useState("login"); // login | signup | reset
-  const [err, setErr] = useState("");
-  const [msg, setMsg] = useState("");
-  const [loading, setLoading] = useState(false);
+/**
+ * Simple Module Platzhalter
+ */
+function ModuleCard({ title, children }) {
+  return (
+    <Card title={title} className="w-full">
+      <div className="text-sm text-neutral-300">{children}</div>
+    </Card>
+  );
+}
 
-  // Aus Recovery-Link kommen? (Supabase setzt im Hash type=recovery)
+export default function App() {
+  const [session, setSession] = useState(null);
+  const [me, setMe] = useState(null); // profile: { id, email, role }
+  const [view, setView] = useState("home"); // 'home' | 'admin' | 'login' | 'register' | 'forgot' | 'recovery'
+  const [busy, setBusy] = useState(true);
+  const [banner, setBanner] = useState(null); // {type:'success'|'error'|'info', msg:string}
+
+  // --- Recovery Hash (#recovery) abfangen und Ansicht setzen
   useEffect(() => {
-    const p = new URLSearchParams(window.location.hash.slice(1));
-    if (p.get("type") === "recovery") {
-      setMode("reset");
-      setMsg("Bitte neues Passwort setzen.");
-      setErr("");
+    if (location.hash?.startsWith("#recovery")) {
+      setView("recovery");
     }
   }, []);
 
-  async function handleLogin(e) {
-    e.preventDefault();
-    setErr(""); setMsg(""); setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email, password: pw,
-      });
-      if (error) throw error;
-      if (typeof onSuccess === "function") onSuccess(data?.user || null);
-    } catch (e) {
-      setErr(e.message || "Login fehlgeschlagen.");
-    } finally { setLoading(false); }
-  }
-
-  async function handleSignup(e) {
-    e.preventDefault();
-    setErr(""); setMsg(""); setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: pw,
-        options: { emailRedirectTo: window.location.origin + "/#recovery" },
-      });
-      if (error) throw error;
-      if (data?.user && !data?.session) {
-        setMsg("Bestätigungs-E-Mail gesendet. Bitte Postfach prüfen.");
-      } else {
-        if (typeof onSuccess === "function") onSuccess(data?.user || null);
-      }
-    } catch (e) {
-      setErr(e.message || "Registrierung fehlgeschlagen.");
-    } finally { setLoading(false); }
-  }
-
-  async function handleForgot() {
-    setErr(""); setMsg("");
-    if (!email) {
-      setErr("Bitte zuerst deine E-Mail eintragen und dann „Passwort vergessen?“ anklicken.");
-      return;
-    }
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + "/#recovery",
-      });
-      if (error) throw error;
-      setMsg("Reset-Link gesendet. Bitte E-Mail prüfen.");
-    } catch (e) {
-      setErr(e.message || "Senden fehlgeschlagen.");
-    } finally { setLoading(false); }
-  }
-
-  async function handleReset(e) {
-    e.preventDefault();
-    setErr(""); setMsg(""); setLoading(true);
-    try {
-      if (pw.length < 6) throw new Error("Passwort min. 6 Zeichen.");
-      if (pw !== pw2) throw new Error("Passwörter stimmen nicht überein.");
-      const { error } = await supabase.auth.updateUser({ password: pw });
-      if (error) throw error;
-      setMsg("Passwort aktualisiert. Du bist angemeldet.");
-      setTimeout(() => window.location.replace("/"), 800);
-    } catch (e) {
-      setErr(e.message || "Reset fehlgeschlagen.");
-    } finally { setLoading(false); }
-  }
-
-  const onSubmit =
-    mode === "login"  ? handleLogin  :
-    mode === "signup" ? handleSignup :
-                        handleReset;
-
-  return (
-    <div className="min-h-screen grid place-items-center bg-gray-50">
-      <form onSubmit={onSubmit} className="w-full max-w-sm">
-        <Card>
-          <CardHeader
-            title={
-              mode === "login" ? "Login" :
-              mode === "signup" ? "Registrieren" : "Passwort zurücksetzen"
-            }
-            subtitle={
-              mode === "login"
-                ? "Melde dich mit deinem Account an."
-                : mode === "signup"
-                ? "Erstelle deinen Account."
-                : "Setze jetzt dein neues Passwort."
-            }
-          />
-          <CardBody className="space-y-3">
-            {mode !== "reset" && (
-              <div>
-                <label className="text-sm">E-Mail</label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-            )}
-
-            {(mode === "login" || mode === "signup") && (
-              <div>
-                <label className="text-sm">Passwort</label>
-                <Input
-                  type="password"
-                  value={pw}
-                  onChange={(e) => setPw(e.target.value)}
-                  required
-                  minLength={6}
-                />
-              </div>
-            )}
-
-            {mode === "reset" && (
-              <>
-                <div>
-                  <label className="text-sm">Neues Passwort</label>
-                  <Input
-                    type="password"
-                    value={pw}
-                    onChange={(e) => setPw(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm">Neues Passwort wiederholen</label>
-                  <Input
-                    type="password"
-                    value={pw2}
-                    onChange={(e) => setPw2(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-              </>
-            )}
-
-            {err && <p className="text-sm text-red-600">{err}</p>}
-            {msg && <p className="text-sm text-green-600">{msg}</p>}
-
-            <Button className="w-full" disabled={loading}>
-              {loading
-                ? (mode === "login" ? "Login…" : mode === "signup" ? "Registriere…" : "Speichere…")
-                : (mode === "login" ? "Einloggen" : mode === "signup" ? "Registrieren" : "Passwort speichern")}
-            </Button>
-
-            {mode !== "reset" && (
-              <div className="text-center">
-                <button type="button" className="text-sm underline" onClick={handleForgot}>
-                  Passwort vergessen?
-                </button>
-              </div>
-            )}
-
-            <div className="text-center text-sm text-gray-700">
-              {mode === "login" ? (
-                <>
-                  Kein Account?{" "}
-                  <button
-                    type="button"
-                    className="underline"
-                    onClick={() => { setMode("signup"); setErr(""); setMsg(""); }}
-                  >
-                    Jetzt registrieren
-                  </button>
-                </>
-              ) : mode === "signup" ? (
-                <>
-                  Bereits Account?{" "}
-                  <button
-                    type="button"
-                    className="underline"
-                    onClick={() => { setMode("login"); setErr(""); setMsg(""); }}
-                  >
-                    Hier einloggen
-                  </button>
-                </>
-              ) : (
-                <>
-                  Zurück zum{" "}
-                  <button
-                    type="button"
-                    className="underline"
-                    onClick={() => { setMode("login"); setErr(""); setMsg(""); }}
-                  >
-                    Login
-                  </button>
-                </>
-              )}
-            </div>
-          </CardBody>
-        </Card>
-      </form>
-    </div>
-  );
-}
-
-// -------------------- Header --------------------
-function Header({ user, role, onGotoAdmin, onSignOut }) {
-  return (
-    <div className="w-full border-b bg-white">
-      <div className="max-w-5xl mx-auto flex items-center justify-between p-4">
-        <div className="font-semibold">SmartBiz Suite</div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600 hidden sm:inline">
-            {user?.email} {role === "admin" ? "(Admin)" : ""}
-          </span>
-          {role === "admin" && (
-            <OutlineButton onClick={onGotoAdmin}>Admin</OutlineButton>
-          )}
-          <OutlineButton onClick={onSignOut}>Logout</OutlineButton>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// -------------------- Dashboard mit Feature-Gating --------------------
-function FeatureCard({ title, description, enabled, onClick }) {
-  return (
-    <Card className={"h-full " + (!enabled ? "opacity-60" : "")}>
-      <CardHeader title={title} subtitle={description} />
-      <CardBody>
-        <Button disabled={!enabled} onClick={onClick}>
-          {enabled ? "Öffnen" : "Nicht freigeschaltet"}
-        </Button>
-      </CardBody>
-    </Card>
-  );
-}
-
-// Platzhalter-Module – später durch echte Module ersetzen
-function PriceFinder() {
-  return (
-    <Card>
-      <CardHeader title="PriceFinder" subtitle="Fragenflow & Preislogik – folgt." />
-      <CardBody>Work in progress…</CardBody>
-    </Card>
-  );
-}
-function MessageMatcher() {
-  return (
-    <Card>
-      <CardHeader title="MessageMatcher" subtitle="Messaging Map – folgt." />
-      <CardBody>Work in progress…</CardBody>
-    </Card>
-  );
-}
-function ContentFlow() {
-  return (
-    <Card>
-      <CardHeader title="ContentFlow" subtitle="Copy-Generator – folgt." />
-      <CardBody>Work in progress…</CardBody>
-    </Card>
-  );
-}
-
-// -------------------- App (Root) --------------------
-export default function App() {
-  const [session, setSession] = useState(null);
-  const [me, setMe] = useState(null); // {id,email,role}
-  const [features, setFeatures] = useState(new Set());
-  const [view, setView] = useState("dashboard"); // dashboard | admin | pricefinder | messagematcher | contentflow
-  const [loading, setLoading] = useState(true);
-
-  const ALL_FEATURES = useMemo(
-    () => [
-      { key: "pricefinder", title: "PriceFinder", desc: "Psychologisch fundierte Preisempfehlung." },
-      { key: "messagematcher", title: "MessageMatcher", desc: "Magnetic Messaging Map." },
-      { key: "contentflow", title: "ContentFlow", desc: "Content-Ideen & Copy, verkaufspsychologisch." },
-    ],
-    []
-  );
-
-  // Session-Handling
+  // --- Session verfolgen
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (!mounted) return;
-      setSession(data.session || null);
-      setLoading(false);
+      setSession(data.session ?? null);
+      setBusy(false);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange((evt, sess) => {
-      setSession(sess || null);
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess ?? null);
     });
-    return () => sub.subscription.unsubscribe();
+
+    return () => {
+      mounted = false;
+      sub?.subscription?.unsubscribe?.();
+    };
   }, []);
 
-  // Profil + Features laden
+  // --- Profil laden wenn Session
   useEffect(() => {
-    if (!session?.user?.id) {
-      setMe(null);
-      setFeatures(new Set());
-      return;
-    }
-    let canceled = false;
+    let ignore = false;
     (async () => {
-      try {
-        const uid = session.user.id;
-        const { data: p, error: pe } = await supabase
-          .from("profiles")
-          .select("id,email,role")
-          .eq("id", uid)
-          .single();
-        if (pe) throw pe;
+      if (!session?.user?.id) {
+        setMe(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,email,role")
+        .eq("id", session.user.id)
+        .single();
 
-        const { data: f, error: fe } = await supabase
-          .from("user_features")
-          .select("feature_key")
-          .eq("user_id", uid);
-
-        if (fe) throw fe;
-
-        if (!canceled) {
-          setMe(p);
-          setFeatures(new Set((f || []).map((x) => x.feature_key)));
-        }
-      } catch (e) {
-        console.error(e);
+      if (error) {
+        console.error("Profile load error:", error);
+        if (!ignore) setBanner({ type: "error", msg: "Profil konnte nicht geladen werden." });
+      } else if (!ignore) {
+        setMe(data || null);
       }
     })();
     return () => {
-      canceled = true;
+      ignore = true;
     };
   }, [session]);
 
-  async function handleSignOut() {
+  async function handleLogout() {
     await supabase.auth.signOut();
-    setView("dashboard");
+    setView("login");
+    setBanner({ type: "info", msg: "Abgemeldet." });
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen grid place-items-center text-sm text-gray-600">
-        Lädt…
-      </div>
-    );
-  }
+  if (busy) return <LoadingScreen />;
 
-  if (!session) {
-    return <Login onSuccess={() => window.location.reload()} />;
-  }
+  // -------------------------------
+  // Views
+  // -------------------------------
 
-  // Admin-Ansicht
-  if (view === "admin") {
-    return (
-      <>
-        <Header
-          user={session.user}
-          role={me?.role}
-          onGotoAdmin={() => setView("admin")}
-          onSignOut={handleSignOut}
-        />
-        <div className="max-w-6xl mx-auto p-4">
-          <Admin onBack={() => setView("dashboard")} />
-        </div>
-      </>
-    );
-  }
-
-  // Modul-Routen
-  if (view === "pricefinder") {
-    return (
-      <>
-        <Header
-          user={session.user}
-          role={me?.role}
-          onGotoAdmin={() => setView("admin")}
-          onSignOut={handleSignOut}
-        />
-        <div className="max-w-4xl mx-auto p-4 space-y-4">
-          <PriceFinder />
-          <OutlineButton onClick={() => setView("dashboard")}>← Zurück</OutlineButton>
-        </div>
-      </>
-    );
-  }
-  if (view === "messagematcher") {
-    return (
-      <>
-        <Header
-          user={session.user}
-          role={me?.role}
-          onGotoAdmin={() => setView("admin")}
-          onSignOut={handleSignOut}
-        />
-        <div className="max-w-4xl mx-auto p-4 space-y-4">
-          <MessageMatcher />
-          <OutlineButton onClick={() => setView("dashboard")}>← Zurück</OutlineButton>
-        </div>
-      </>
-    );
-  }
-  if (view === "contentflow") {
-    return (
-      <>
-        <Header
-          user={session.user}
-          role={me?.role}
-          onGotoAdmin={() => setView("admin")}
-          onSignOut={handleSignOut}
-        />
-        <div className="max-w-4xl mx-auto p-4 space-y-4">
-          <ContentFlow />
-          <OutlineButton onClick={() => setView("dashboard")}>← Zurück</OutlineButton>
-        </div>
-      </>
-    );
-  }
-
-  // Dashboard
   return (
-    <>
-      <Header
-        user={session.user}
-        role={me?.role}
-        onGotoAdmin={() => setView("admin")}
-        onSignOut={handleSignOut}
-      />
-      <div className="max-w-6xl mx-auto p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {ALL_FEATURES.map((f) => (
-            <FeatureCard
-              key={f.key}
-              title={f.title}
-              description={f.desc}
-              enabled={features.has(f.key) || me?.role === "admin"}
-              onClick={() => setView(f.key)}
-            />
-          ))}
+    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+      {/* Header */}
+      <header className="border-b border-neutral-800 bg-neutral-900/40 backdrop-blur sticky top-0">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div
+            className="font-semibold tracking-wide text-neutral-100 cursor-pointer"
+            onClick={() => setView("home")}
+            title="SmartBiz Suite"
+          >
+            SmartBiz Suite
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {session ? (
+              <>
+                {me?.role === "admin" && (
+                  <button
+                    className={`px-3 py-1.5 rounded-md text-sm border ${
+                      view === "admin"
+                        ? "bg-emerald-600 border-emerald-600"
+                        : "border-neutral-700 hover:border-neutral-500"
+                    }`}
+                    onClick={() => setView("admin")}
+                    title="Admin-Dashboard"
+                  >
+                    Admin
+                  </button>
+                )}
+                <button
+                  className="px-3 py-1.5 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className={`px-3 py-1.5 rounded-md text-sm border ${
+                    view === "login"
+                      ? "bg-neutral-200 text-neutral-900 border-neutral-200"
+                      : "border-neutral-700 hover:border-neutral-500"
+                  }`}
+                  onClick={() => setView("login")}
+                >
+                  Login
+                </button>
+                <button
+                  className={`px-3 py-1.5 rounded-md text-sm border ${
+                    view === "register"
+                      ? "bg-emerald-600 border-emerald-600"
+                      : "border-neutral-700 hover:border-neutral-500"
+                  }`}
+                  onClick={() => setView("register")}
+                >
+                  Registrieren
+                </button>
+              </>
+            )}
+          </div>
         </div>
-        <p className="text-xs text-gray-500 mt-4">
-          Nur freigeschaltete Module sind nutzbar. Admins sehen alles.
-        </p>
-      </div>
-    </>
+      </header>
+
+      {/* Banner */}
+      {banner && (
+        <div
+          className={`${
+            banner.type === "error"
+              ? "bg-red-900/50 text-red-200"
+              : banner.type === "success"
+              ? "bg-emerald-900/50 text-emerald-200"
+              : "bg-neutral-800 text-neutral-200"
+          }`}
+        >
+          <div className="max-w-6xl mx-auto px-4 py-2 text-sm flex items-start justify-between gap-4">
+            <div>{banner.msg}</div>
+            <button className="opacity-70 hover:opacity-100" onClick={() => setBanner(null)}>
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <main className="max-w-6xl mx-auto px-4 py-6 space-y-6">
+        {/* RECOVERY (Passwort aus Reset-Link setzen) */}
+        {view === "recovery" && <RecoveryView onDone={() => setView("login")} setBanner={setBanner} />}
+
+        {/* LOGIN / REGISTER / FORGOT */}
+        {!session && view === "login" && <LoginView setBanner={setBanner} setView={setView} />}
+        {!session && view === "register" && <RegisterView setBanner={setBanner} setView={setView} />}
+        {!session && view === "forgot" && <ForgotView setBanner={setBanner} setView={setView} />}
+
+        {/* HOME */}
+        {session && view === "home" && (
+          <div className="grid md:grid-cols-3 gap-6">
+            <ModuleCard title="PriceFinder">
+              <p className="mb-3">
+                Berechnet drei Preispunkte (Wohlfühl / Wachstum / Authority) – <em>Demo-Placeholder</em>.
+              </p>
+              <button
+                className="px-3 py-1.5 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+                onClick={() => setBanner({ type: "info", msg: "PriceFinder-Demo – hier später die echte Logik." })}
+              >
+                Test-Analyse starten
+              </button>
+            </ModuleCard>
+
+            <ModuleCard title="MessageMatcher">
+              <p className="mb-3">Analysiert Tonalität & Differenzierung – <em>Demo-Placeholder</em>.</p>
+              <button
+                className="px-3 py-1.5 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+                onClick={() => setBanner({ type: "info", msg: "MessageMatcher-Demo – hier später die echte Logik." })}
+              >
+                Text analysieren
+              </button>
+            </ModuleCard>
+
+            <ModuleCard title="ContentFlow">
+              <p className="mb-3">Erstellt Content-Serien & Hooks – <em>Demo-Placeholder</em>.</p>
+              <button
+                className="px-3 py-1.5 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+                onClick={() => setBanner({ type: "info", msg: "ContentFlow-Demo – hier später die echte Logik." })}
+              >
+                5 Hooks generieren
+              </button>
+            </ModuleCard>
+          </div>
+        )}
+
+        {/* ADMIN */}
+        {session && view === "admin" && me?.role === "admin" && (
+          <Admin onBack={() => setView("home")} />
+        )}
+
+        {/* Default-Hinweis */}
+        {!session && !["login", "register", "forgot", "recovery"].includes(view) && (
+          <Card>
+            <div className="text-sm text-neutral-300">
+              Bitte <button className="underline" onClick={() => setView("login")}>einloggen</button> oder{" "}
+              <button className="underline" onClick={() => setView("register")}>registrieren</button>.
+            </div>
+          </Card>
+        )}
+      </main>
+    </div>
+  );
+}
+
+/* ---------------- Views: Login / Register / Forgot / Recovery ---------------- */
+
+function LoginView({ setBanner, setView }) {
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onLogin(e) {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    try {
+      const { error } = await loginWithPassword(email, pw);
+      if (error) throw error;
+      setBanner({ type: "success", msg: "Erfolgreich eingeloggt." });
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Login fehlgeschlagen.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onMagic(e) {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    try {
+      const emailNorm = (email || "").trim().toLowerCase();
+      const { error } = await supabase.auth.signInWithOtp({ email: emailNorm });
+      if (error) throw error;
+      setBanner({ type: "info", msg: "Magic Link gesendet. Bitte E-Mail checken." });
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Magic Link konnte nicht gesendet werden.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card title="Login" className="max-w-md mx-auto">
+      <form onSubmit={onLogin} className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-sm text-neutral-300">E-Mail</label>
+          <input
+            type="email"
+            autoComplete="username"
+            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 outline-none focus:border-neutral-400"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="you@example.com"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm text-neutral-300">Passwort</label>
+          <input
+            type="password"
+            autoComplete="current-password"
+            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 outline-none focus:border-neutral-400"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            required
+            placeholder="••••••••"
+          />
+        </div>
+
+        {err && <div className="text-sm text-red-400">{err}</div>}
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-3 py-2 rounded-md text-sm bg-neutral-200 text-neutral-900 disabled:opacity-60"
+          >
+            {loading ? "Einloggen…" : "Einloggen"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onMagic}
+            disabled={loading || !email}
+            className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500 disabled:opacity-60"
+            title="Login per E-Mail-Link"
+          >
+            Magic Link
+          </button>
+        </div>
+
+        <div className="pt-2 text-sm text-neutral-400 flex items-center gap-3">
+          <button type="button" className="underline" onClick={() => setView("forgot")}>
+            Passwort vergessen?
+          </button>
+          <span className="opacity-50">|</span>
+          <button type="button" className="underline" onClick={() => setView("register")}>
+            Jetzt registrieren
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function RegisterView({ setBanner, setView }) {
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onRegister(e) {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    try {
+      const { error } = await registerWithPassword(email, pw);
+      if (error) throw error;
+      setBanner({ type: "success", msg: "Registrierung erfolgreich. Du kannst dich jetzt einloggen." });
+      setView("login");
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Registrierung fehlgeschlagen.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card title="Registrieren" className="max-w-md mx-auto">
+      <form onSubmit={onRegister} className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-sm text-neutral-300">E-Mail</label>
+          <input
+            type="email"
+            autoComplete="username"
+            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 outline-none focus:border-neutral-400"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="you@example.com"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm text-neutral-300">Passwort</label>
+          <input
+            type="password"
+            autoComplete="new-password"
+            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 outline-none focus:border-neutral-400"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            required
+            placeholder="Mind. 6 Zeichen"
+          />
+        </div>
+
+        {err && <div className="text-sm text-red-400">{err}</div>}
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-3 py-2 rounded-md text-sm bg-emerald-600 disabled:opacity-60"
+          >
+            {loading ? "Registriere…" : "Registrieren"}
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+            onClick={() => setView("login")}
+          >
+            Zurück zum Login
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function ForgotView({ setBanner, setView }) {
+  const [email, setEmail] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onSend(e) {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    try {
+      const { error } = await sendReset(email);
+      if (error) throw error;
+      setBanner({ type: "info", msg: "Reset-Link gesendet. Bitte E-Mail checken." });
+      setView("login");
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Versand fehlgeschlagen.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card title="Passwort zurücksetzen" className="max-w-md mx-auto">
+      <form onSubmit={onSend} className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-sm text-neutral-300">E-Mail</label>
+          <input
+            type="email"
+            autoComplete="username"
+            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 outline-none focus:border-neutral-400"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="you@example.com"
+          />
+        </div>
+
+        {err && <div className="text-sm text-red-400">{err}</div>}
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-3 py-2 rounded-md text-sm bg-neutral-200 text-neutral-900 disabled:opacity-60"
+          >
+            {loading ? "Sende…" : "Reset-Link senden"}
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+            onClick={() => setView("login")}
+          >
+            Zurück zum Login
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function RecoveryView({ onDone, setBanner }) {
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function onSet(e) {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      setBanner({ type: "success", msg: "Passwort aktualisiert. Bitte neu einloggen." });
+      // Hash aufräumen
+      history.replaceState(null, "", location.pathname);
+      onDone?.();
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Aktualisierung fehlgeschlagen.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card title="Neues Passwort setzen" className="max-w-md mx-auto">
+      <form onSubmit={onSet} className="space-y-3">
+        <div className="space-y-1">
+          <label className="text-sm text-neutral-300">Neues Passwort</label>
+          <input
+            type="password"
+            autoComplete="new-password"
+            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2 outline-none focus:border-neutral-400"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+            required
+            placeholder="••••••••"
+          />
+        </div>
+
+        {err && <div className="text-sm text-red-400">{err}</div>}
+
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-3 py-2 rounded-md text-sm bg-emerald-600 disabled:opacity-60"
+          >
+            {loading ? "Speichere…" : "Passwort speichern"}
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+            onClick={onDone}
+          >
+            Abbrechen
+          </button>
+        </div>
+      </form>
+    </Card>
   );
 }
