@@ -60,9 +60,23 @@ function Banner({ banner, onClose }) {
 }
 
 function Button({ children, onClick, variant = "solid", className = "", type = "button", disabled = false }) {
+  const styleVars = { '--gold': theme.gold, '--goldHover': theme.goldHover };
   const base =
     variant === "solid"
-      ? `bg-[${theme.gold}] text-black hover:bg-[${theme.goldHover}]`
+      ? "bg-[var(--gold)] text-black hover:bg-[var(--goldHover)]"
+      : "border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black";
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      style={styleVars}
+      className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 disabled:opacity-50 ${base} ${className} hover:-translate-y-0.5 active:translate-y-0`}
+    >
+      {children}
+    </button>
+  );
+}] text-black hover:bg-[${theme.goldHover}]`
       : `border border-[${theme.gold}] text-[${theme.gold}] hover:bg-[${theme.gold}] hover:text-black`;
   return (
     <button
@@ -274,12 +288,29 @@ export default function App() {
   };
 
   const TopBar = () => (
-    <header className="mb-6 flex items-center justify-between">
-      <h1 className="text-xl font-bold" style={{ color: theme.gold }}>SmartBiz Suite</h1>
-      <nav className="flex gap-2">
-        {session ? (
-          <>
-            <Button variant="outline" onClick={() => { setTool(null); setView("home"); }}>Home</Button>
+  <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
+    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left" style={{ color: theme.gold }}>
+      SmartBiz Suite
+    </h1>
+    <nav className="flex flex-wrap items-center justify-center gap-2">
+      {session ? (
+        <>
+          <Button variant="outline" onClick={() => { setTool(null); setView("home"); }}>Home</Button>
+          <Button variant="outline" onClick={() => { setTool(null); setView("account"); }}>Konto</Button>
+          {me?.role === "admin" && (
+            <Button variant="outline" onClick={() => { setTool(null); setView("admin"); }}>Admin</Button>
+          )}
+          <Button onClick={handleLogout}>Logout</Button>
+        </>
+      ) : (
+        <>
+          <Button variant="outline" onClick={() => setView("login")}>Login</Button>
+          <Button onClick={() => setView("register")}>Registrieren</Button>
+        </>
+      )}
+    </nav>
+  </header>
+); setView("home"); }}>Home</Button>
             <Button variant="outline" onClick={() => { setTool(null); setView("account"); }}>Konto</Button>
             {me?.role === "admin" && (
               <Button variant="outline" onClick={() => { setTool(null); setView("admin"); }}>Admin</Button>
@@ -297,110 +328,109 @@ export default function App() {
   );
 
   return (
-    <div className={`min-h-screen ${theme.bg} ${theme.text}`}>
-      <div className="mx-auto max-w-6xl p-6">
-        <TopBar />
-        <Banner banner={banner} onClose={() => setBanner(null)} />
-        <ToolHeader />
+  <div className={`min-h-screen ${theme.bg} ${theme.text}`}>
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+      <TopBar />
+      <Banner banner={banner} onClose={() => setBanner(null)} />
+      <ToolHeader />
 
-        <main className="space-y-6">
-          {/* HOME */}
-          {session && view === "home" && !tool && (
-            <FadeIn inKey="home">
-              <Card className="text-center py-8">
-                <p className="text-lg font-medium text-neutral-300">{greeting}</p>
+      <main className="space-y-10">
+        {session && view === "home" && !tool && (
+          <FadeIn inKey="home">
+            <section className="max-w-3xl mx-auto">
+              <Card className="text-center py-10">
+                <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
               </Card>
-              <div className="grid md:grid-cols-3 gap-6">
-                <Card title="PriceFinder" subtitle="Wohlfühl-, Wachstums- & Authority-Preis">
+            </section>
+            <section className="max-w-5xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 justify-items-stretch">
+                <Card title="PriceFinder" subtitle="Wohlfühl-, Wachstums- & Authority-Preis" className="h-full">
                   <p className="text-sm text-neutral-400">Klarer, sauberer Pricing-Flow.</p>
-                  <div className="mt-4 text-center">
+                  <div className="mt-5 flex justify-center">
                     <Button onClick={() => setTool("pricefinder")}>Öffnen</Button>
                   </div>
                 </Card>
-                <Card title="MessageMatcher" subtitle="Messaging-Map aus Bio/Website">
+                <Card title="MessageMatcher" subtitle="Messaging-Map aus Bio/Website" className="h-full">
                   <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
-                  <div className="mt-4 text-center">
+                  <div className="mt-5 flex justify-center">
                     <Button onClick={() => setTool("messagematcher")}>Öffnen</Button>
                   </div>
                 </Card>
-                <Card title="ContentFlow" subtitle="Hooks, Stories, Captions">
+                <Card title="ContentFlow" subtitle="Hooks, Stories, Captions" className="h-full">
                   <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
-                  <div className="mt-4 text-center">
+                  <div className="mt-5 flex justify-center">
                     <Button onClick={() => setTool("contentflow")}>Öffnen</Button>
                   </div>
                 </Card>
               </div>
-            </FadeIn>
-          )}
+            </section>
+          </FadeIn>
+        )}
 
-          {/* DASHBOARD TOOL LAYOUT */}
-          {session && tool && (
-            <FadeIn inKey={tool}>
-              <div className="grid lg:grid-cols-12 gap-6">
-                {/* Sidebar */}
-                <aside className="lg:col-span-3 space-y-3">
-                  <Card title="Navigation">
-                    <div className="grid gap-2">
-                      <Button variant="outline" className={`${tool==='pricefinder'?'opacity-100':'opacity-70'}`} onClick={() => setTool("pricefinder")}>PriceFinder</Button>
-                      <Button variant="outline" className={`${tool==='messagematcher'?'opacity-100':'opacity-70'}`} onClick={() => setTool("messagematcher")}>MessageMatcher</Button>
-                      <Button variant="outline" className={`${tool==='contentflow'?'opacity-100':'opacity-70'}`} onClick={() => setTool("contentflow")}>ContentFlow</Button>
-                    </div>
+        {session && tool && (
+          <FadeIn inKey={tool}>
+            <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-6">
+              <aside className="lg:col-span-4 space-y-3">
+                <Card title="Navigation">
+                  <div className="grid gap-2">
+                    <Button variant="outline" className={`${tool==='pricefinder'?'opacity-100':'opacity-70'}`} onClick={() => setTool("pricefinder")}>PriceFinder</Button>
+                    <Button variant="outline" className={`${tool==='messagematcher'?'opacity-100':'opacity-70'}`} onClick={() => setTool("messagematcher")}>MessageMatcher</Button>
+                    <Button variant="outline" className={`${tool==='contentflow'?'opacity-100':'opacity-70'}`} onClick={() => setTool("contentflow")}>ContentFlow</Button>
+                  </div>
+                </Card>
+                <Card title="Quick Actions">
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Scroll Top</Button>
+                    <Button variant="outline" onClick={() => setTool(null)}>Zur Übersicht</Button>
+                  </div>
+                </Card>
+              </aside>
+
+              <section className="lg:col-span-8 space-y-4">
+                {tool === "pricefinder" && (
+                  <Card title="PriceFinder">
+                    <PriceFinder />
                   </Card>
-                  <Card title="Quick Actions">
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Scroll Top</Button>
-                      <Button variant="outline" onClick={() => setTool(null)}>Zur Übersicht</Button>
-                    </div>
+                )}
+                {tool === "messagematcher" && (
+                  <Card title="MessageMatcher">
+                    <MessageMatcher />
                   </Card>
-                </aside>
+                )}
+                {tool === "contentflow" && (
+                  <Card title="ContentFlow">
+                    <ContentFlow />
+                  </Card>
+                )}
+              </section>
+            </div>
+          </FadeIn>
+        )}
 
-                {/* Main */}
-                <section className="lg:col-span-9 space-y-4">
-                  {tool === "pricefinder" && (
-                    <Card title="PriceFinder">
-                      <PriceFinder />
-                    </Card>
-                  )}
-                  {tool === "messagematcher" && (
-                    <Card title="MessageMatcher">
-                      <MessageMatcher />
-                    </Card>
-                  )}
-                  {tool === "contentflow" && (
-                    <Card title="ContentFlow">
-                      <ContentFlow />
-                    </Card>
-                  )}
-                </section>
-              </div>
-            </FadeIn>
-          )}
+        {!session && view === "login" && (
+          <FadeIn inKey="login"><LoginView setBanner={setBanner} setView={setView} /></FadeIn>
+        )}
+        {!session && view === "register" && (
+          <FadeIn inKey="register"><RegisterView setBanner={setBanner} setView={setView} /></FadeIn>
+        )}
+        {view === "recovery" && (
+          <FadeIn inKey="recovery"><RecoveryView setBanner={setBanner} /></FadeIn>
+        )}
+        {session && view === "account" && !tool && (
+          <FadeIn inKey="account"><AccountView me={me} setBanner={setBanner} /></FadeIn>
+        )}
+        {session && view === "admin" && !tool && (
+          <FadeIn inKey="admin"><Admin onBack={() => setView("home")} /></FadeIn>
+        )}
 
-          {/* AUTH / ACCOUNT */}
-          {!session && view === "login" && (
-            <FadeIn inKey="login"><LoginView setBanner={setBanner} setView={setView} /></FadeIn>
-          )}
-          {!session && view === "register" && (
-            <FadeIn inKey="register"><RegisterView setBanner={setBanner} setView={setView} /></FadeIn>
-          )}
-          {view === "recovery" && (
-            <FadeIn inKey="recovery"><RecoveryView setBanner={setBanner} /></FadeIn>
-          )}
-          {session && view === "account" && !tool && (
-            <FadeIn inKey="account"><AccountView me={me} setBanner={setBanner} /></FadeIn>
-          )}
-          {session && view === "admin" && !tool && (
-            <FadeIn inKey="admin"><Admin onBack={() => setView("home")} /></FadeIn>
-          )}
-
-          {!session && !["login", "register", "recovery"].includes(view) && (
-            <div className="text-sm opacity-70">Du bist nicht eingeloggt. Bitte <button className="underline" onClick={() => setView("login")}>
-              einloggen</button>.</div>
-          )}
-        </main>
-      </div>
+        {!session && !["login", "register", "recovery"].includes(view) && (
+          <div className="text-sm opacity-70 text-center">Du bist nicht eingeloggt. Bitte <button className="underline" onClick={() => setView("login")}>
+            einloggen</button>.</div>
+        )}
+      </main>
     </div>
-  );
+  </div>
+);
 }
 
 /* ========================= REGISTER VIEW (separat, damit oben kompakt bleibt) ========================= */
