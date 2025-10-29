@@ -1,7 +1,7 @@
 // src/App.jsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
-import Admin from "./pages/Admin.jsx";
+import Admin from "./pages/admin.jsx";
 
 // -------------------- kleine UI-Helfer --------------------
 function Button({ className = "", children, ...props }) {
