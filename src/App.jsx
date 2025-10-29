@@ -1,7 +1,7 @@
 // src/App.jsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
-import Admin from "./pages/Admin";
+import Admin from "./pages/admin";
 
 // --- kleine UI-Helfer (pures Tailwind, kein shadcn) ---
 function Button({ children, variant = "primary", className = "", ...props }) {
