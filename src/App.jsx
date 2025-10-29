@@ -1,18 +1,41 @@
-// src/App.jsx
+// src/App.jsx — dark+gold theme with animations & dashboard
+// Copy 1:1. Nur Pfade zu deinen Modulen ggf. anpassen (ContentFlow vs. ContenFlow).
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
-import Admin from "./pages/admin"; // Datei: src/pages/admin.jsx (klein geschrieben)
-
-// 🔌 Tools (achte auf die exakten Dateinamen unter src/modules)
-// Wenn deine Datei "ContenFlow.jsx" heißt (ohne "t"), ändere den Import unten auf "./modules/ContenFlow".
+import Admin from "./pages/admin";
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
-import ContentFlow from "./modules/ContentFlow";
+import ContentFlow from "./modules/ContentFlow"; // falls deine Datei ContenFlow.jsx heißt -> Pfad anpassen
 
-function Card({ title, className = "", children }) {
+/* ========================= THEME ========================= */
+const theme = {
+  bg: "bg-[#0b0b0b]",
+  card: "bg-[#141414] border border-[#2a2a2a]",
+  cardHover: "hover:border-[#3a3a3a] hover:shadow-[0_10px_30px_rgba(0,0,0,0.35)]",
+  text: "text-neutral-100",
+  muted: "text-neutral-400",
+  gold: "#d1a45f",
+  goldHover: "#c2924d",
+};
+
+/* ========================= PRIMITIVES ========================= */
+function Card({ title, subtitle, className = "", children }) {
   return (
-    <div className={`rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 ${className}`}>
-      {title && <div className="mb-3 text-sm font-semibold text-neutral-200">{title}</div>}
+    <div
+      className={`rounded-xl p-5 transition-all duration-300 ${theme.card} ${theme.cardHover} ${className}`}
+    >
+      {(title || subtitle) && (
+        <div className="mb-3">
+          {title && (
+            <div className="text-sm font-semibold" style={{ color: theme.gold }}>
+              {title}
+            </div>
+          )}
+          {subtitle && (
+            <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>
+          )}
+        </div>
+      )}
       {children}
     </div>
   );
@@ -25,48 +48,62 @@ function Banner({ banner, onClose }) {
       ? "bg-emerald-900/40 border-emerald-700 text-emerald-200"
       : banner.type === "error"
       ? "bg-rose-900/40 border-rose-700 text-rose-200"
-      : "bg-neutral-900/40 border-neutral-700 text-neutral-200";
+      : `${theme.card} ${theme.text}`;
   return (
     <div className={`mb-4 rounded-lg border px-4 py-2 text-sm ${color}`}>
       <div className="flex items-start justify-between gap-3">
         <div>{banner.msg}</div>
-        <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose}>
-          ✕
-        </button>
+        <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose}>✕</button>
       </div>
     </div>
   );
 }
 
-/* ------------------------- Auth Helper ------------------------- */
-
-async function signInWithPassword(emailRaw, password) {
-  const email = (emailRaw || "").trim().toLowerCase();
-  return supabase.auth.signInWithPassword({ email, password });
+function Button({ children, onClick, variant = "solid", className = "", type = "button", disabled = false }) {
+  const base =
+    variant === "solid"
+      ? `bg-[${theme.gold}] text-black hover:bg-[${theme.goldHover}]`
+      : `border border-[${theme.gold}] text-[${theme.gold}] hover:bg-[${theme.gold}] hover:text-black`;
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 disabled:opacity-50 ${base} ${className} hover:-translate-y-0.5 active:translate-y-0`}
+    >
+      {children}
+    </button>
+  );
 }
 
-async function signInWithMagicLink(emailRaw) {
-  const email = (emailRaw || "").trim().toLowerCase();
-  return supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.origin },
-  });
+// Simple fade/slide-in without extra libs
+function FadeIn({ children, inKey }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => { setShow(false); const t = setTimeout(() => setShow(true), 10); return () => clearTimeout(t); }, [inKey]);
+  return (
+    <div className={`transform transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+      {children}
+    </div>
+  );
 }
 
-async function signUp(emailRaw, password) {
-  const email = (emailRaw || "").trim().toLowerCase();
-  return supabase.auth.signUp({ email, password });
+/* ========================= AUTH VIEWS (gekürzt auf das Wesentliche, UI poliert) ========================= */
+function TextInput({ label, type = "text", value, onChange, placeholder, autoComplete }) {
+  return (
+    <div className="space-y-1">
+      {label && <label className="text-sm text-neutral-300">{label}</label>}
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        className="w-full rounded-md bg-[#0f0f0f] border border-[#2a2a2a] px-3 py-2 text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-[var(--gold)]"
+        style={{ ['--gold']: theme.gold }}
+      />
+    </div>
+  );
 }
-
-async function sendReset(emailRaw) {
-  const email = (emailRaw || "").trim().toLowerCase();
-  // Sehr wichtig: wir leiten auf /#recovery, damit unsere App das „Neues Passwort“-Form zeigt
-  return supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/#recovery`,
-  });
-}
-
-/* ------------------------- Views ------------------------- */
 
 function LoginView({ setBanner, setView }) {
   const [email, setEmail] = useState("");
@@ -74,212 +111,40 @@ function LoginView({ setBanner, setView }) {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function onLogin(e) {
-    e.preventDefault();
-    setLoading(true);
-    setErr("");
-    try {
-      const { error } = await signInWithPassword(email, pw);
-      if (error) throw error;
-      setBanner({ type: "success", msg: "Eingeloggt. Willkommen zurück!" });
-    } catch (e) {
-      setErr(e?.message || "Invalid login credentials.");
-    } finally {
-      setLoading(false);
-    }
+  async function signInWithPassword(emailRaw, password) {
+    const email = (emailRaw || "").trim().toLowerCase();
+    return supabase.auth.signInWithPassword({ email, password });
+  }
+  async function signInWithMagicLink(emailRaw) {
+    const email = (emailRaw || "").trim().toLowerCase();
+    return supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } });
+  }
+  async function sendReset(emailRaw) {
+    const email = (emailRaw || "").trim().toLowerCase();
+    return supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/#recovery` });
   }
 
-  async function onMagic(e) {
-    e.preventDefault();
-    setLoading(true);
-    setErr("");
-    try {
-      const { error } = await signInWithMagicLink(email);
-      if (error) throw error;
-      setBanner({
-        type: "success",
-        msg: "Magic Link gesendet. Prüfe dein E-Mail-Postfach.",
-      });
-    } catch (e) {
-      setErr(e?.message || "Magic Link konnte nicht gesendet werden.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function onForgot(e) {
-    e.preventDefault();
-    setLoading(true);
-    setErr("");
-    try {
-      const { error } = await sendReset(email);
-      if (error) throw error;
-      setBanner({
-        type: "success",
-        msg: "Reset-Link verschickt. Prüfe dein Postfach.",
-      });
-    } catch (e) {
-      setErr(e?.message || "Reset-E-Mail konnte nicht gesendet werden.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const onLogin = async (e) => {
+    e.preventDefault(); setLoading(true); setErr("");
+    try { const { error } = await signInWithPassword(email, pw); if (error) throw error; setBanner({ type: "success", msg: "Eingeloggt. Willkommen zurück!" }); }
+    catch (e) { setErr(e?.message || "Invalid login credentials."); }
+    finally { setLoading(false); }
+  };
+  const onMagic = async (e) => { e.preventDefault(); setLoading(true); setErr(""); try { const { error } = await signInWithMagicLink(email); if (error) throw error; setBanner({ type: "success", msg: "Magic Link gesendet. Prüfe dein Postfach." }); } catch (e) { setErr(e?.message || "Magic Link konnte nicht gesendet werden."); } finally { setLoading(false); } };
+  const onForgot = async (e) => { e.preventDefault(); setLoading(true); setErr(""); try { const { error } = await sendReset(email); if (error) throw error; setBanner({ type: "success", msg: "Reset-Link verschickt. Prüfe dein Postfach." }); } catch (e) { setErr(e?.message || "Reset-E-Mail konnte nicht gesendet werden."); } finally { setLoading(false); } };
 
   return (
-    <Card title="Login" className="max-w-md mx-auto">
+    <Card title="Login" subtitle="Willkommen zurück">
       <form className="space-y-3" onSubmit={onLogin}>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-300">E-Mail</label>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-            placeholder="you@domain.com"
-            autoComplete="username"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-300">Passwort</label>
-          <input
-            type="password"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-            placeholder="••••••••"
-            autoComplete="current-password"
-          />
-        </div>
+        <TextInput label="E-Mail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@domain.com" autoComplete="username" />
+        <TextInput label="Passwort" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
         {err && <div className="text-sm text-rose-400">{err}</div>}
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-3 py-2 rounded-md text-sm bg-neutral-200 text-neutral-900 disabled:opacity-60"
-          >
-            {loading ? "Einloggen…" : "Einloggen"}
-          </button>
-          <button
-            onClick={onMagic}
-            disabled={loading}
-            className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
-          >
-            Magic Link
-          </button>
-        </div>
-        <div className="mt-2 flex items-center gap-3 text-sm">
-          <button
-            className="underline decoration-neutral-500 hover:decoration-neutral-300"
-            onClick={onForgot}
-            disabled={loading}
-          >
-            Passwort vergessen?
-          </button>
+        <div className="flex flex-wrap gap-3">
+          <Button type="submit" disabled={loading}>{loading ? "Einloggen…" : "Einloggen"}</Button>
+          <Button variant="outline" onClick={onMagic} disabled={loading}>Magic Link</Button>
+          <button className="text-sm underline decoration-neutral-600 hover:decoration-neutral-300" onClick={onForgot} disabled={loading}>Passwort vergessen?</button>
           <span className="opacity-40">|</span>
-          <button
-            className="underline decoration-neutral-500 hover:decoration-neutral-300"
-            onClick={() => setView("register")}
-          >
-            Jetzt registrieren
-          </button>
-        </div>
-      </form>
-    </Card>
-  );
-}
-
-function RegisterView({ setBanner, setView }) {
-  const [first, setFirst] = useState("");
-  const [email, setEmail] = useState("");
-  const [pw, setPw] = useState("");
-  const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function onRegister(e) {
-    e.preventDefault();
-    setLoading(true);
-    setErr("");
-    try {
-      const { data, error } = await signUp(email, pw);
-      if (error) throw error;
-
-      // falls keine Email-Bestätigung erzwungen ist, existiert user direkt
-      const uid = data?.user?.id;
-      if (uid) {
-        const { error: pe } = await supabase
-          .from("profiles")
-          .upsert({
-            id: uid,
-            email: (email || "").trim().toLowerCase(),
-            role: "user",
-            first_name: first || null,
-          });
-        if (pe) throw pe;
-      }
-
-      setBanner({
-        type: "success",
-        msg: "Registrierung erfolgreich. Bitte einloggen.",
-      });
-      setView("login");
-    } catch (e) {
-      setErr(e?.message || "Registrierung fehlgeschlagen.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <Card title="Registrieren" className="max-w-md mx-auto">
-      <form className="space-y-3" onSubmit={onRegister}>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-300">Vorname</label>
-          <input
-            value={first}
-            onChange={(e) => setFirst(e.target.value)}
-            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-            placeholder="Christina"
-            required
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-300">E-Mail</label>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-            placeholder="you@domain.com"
-            autoComplete="username"
-            required
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-300">Passwort</label>
-          <input
-            type="password"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-            placeholder="••••••••"
-            autoComplete="new-password"
-            required
-          />
-        </div>
-        {err && <div className="text-sm text-rose-400">{err}</div>}
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-3 py-2 rounded-md text-sm bg-neutral-200 text-neutral-900 disabled:opacity-60"
-          >
-            {loading ? "Registriere…" : "Registrieren"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("login")}
-            className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
-          >
-            Zurück zum Login
-          </button>
+          <button className="text-sm underline decoration-neutral-600 hover:decoration-neutral-300" onClick={() => setView("register")}>Jetzt registrieren</button>
         </div>
       </form>
     </Card>
@@ -291,61 +156,20 @@ function RecoveryView({ setBanner }) {
   const [pw2, setPw2] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-
-  async function onSubmit(e) {
-    e.preventDefault();
-    setErr("");
-    if (!pw1 || pw1 !== pw2) {
-      setErr("Passwörter stimmen nicht überein.");
-      return;
-    }
+  const onSubmit = async (e) => {
+    e.preventDefault(); setErr(""); if (!pw1 || pw1 !== pw2) { setErr("Passwörter stimmen nicht überein."); return; }
     setLoading(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: pw1 });
-      if (error) throw error;
-      setBanner({ type: "success", msg: "Passwort gesetzt. Du bist eingeloggt." });
-      // Hash entfernen
-      window.history.replaceState({}, "", window.location.pathname);
-    } catch (e) {
-      setErr(e?.message || "Passwort konnte nicht gesetzt werden.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
+    try { const { error } = await supabase.auth.updateUser({ password: pw1 }); if (error) throw error; setBanner({ type: "success", msg: "Passwort gesetzt. Du bist eingeloggt." }); window.history.replaceState({}, "", window.location.pathname); }
+    catch (e) { setErr(e?.message || "Passwort konnte nicht gesetzt werden."); }
+    finally { setLoading(false); }
+  };
   return (
-    <Card title="Neues Passwort setzen" className="max-w-md mx-auto">
+    <Card title="Neues Passwort setzen">
       <form className="space-y-3" onSubmit={onSubmit}>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-300">Neues Passwort</label>
-          <input
-            type="password"
-            value={pw1}
-            onChange={(e) => setPw1(e.target.value)}
-            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-            placeholder="••••••••"
-            autoComplete="new-password"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm text-neutral-300">Wiederholen</label>
-          <input
-            type="password"
-            value={pw2}
-            onChange={(e) => setPw2(e.target.value)}
-            className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-            placeholder="••••••••"
-            autoComplete="new-password"
-          />
-        </div>
+        <TextInput label="Neues Passwort" type="password" value={pw1} onChange={(e)=>setPw1(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+        <TextInput label="Wiederholen" type="password" value={pw2} onChange={(e)=>setPw2(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
         {err && <div className="text-sm text-rose-400">{err}</div>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="px-3 py-2 rounded-md text-sm bg-neutral-200 text-neutral-900 disabled:opacity-60"
-        >
-          {loading ? "Speichere…" : "Passwort speichern"}
-        </button>
+        <Button type="submit" disabled={loading}>{loading ? "Speichere…" : "Passwort speichern"}</Button>
       </form>
     </Card>
   );
@@ -354,379 +178,272 @@ function RecoveryView({ setBanner }) {
 function AccountView({ me, setBanner }) {
   const [first, setFirst] = useState(me?.first_name || "");
   const [saving, setSaving] = useState(false);
-
   const [pw1, setPw1] = useState("");
   const [pw2, setPw2] = useState("");
   const [errPw, setErrPw] = useState("");
   const [busyPw, setBusyPw] = useState(false);
 
-  async function saveProfile(e) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ first_name: first })
-        .eq("id", me.id);
-      if (error) throw error;
-      setBanner({ type: "success", msg: "Profil gespeichert." });
-    } catch (e) {
-      setBanner({ type: "error", msg: "Profil konnte nicht gespeichert werden." });
-    } finally {
-      setSaving(false);
-    }
-  }
+  const saveProfile = async (e) => {
+    e.preventDefault(); setSaving(true);
+    try { const { error } = await supabase.from("profiles").update({ first_name: first }).eq("id", me.id); if (error) throw error; setBanner({ type: "success", msg: "Profil gespeichert." }); }
+    catch { setBanner({ type: "error", msg: "Profil konnte nicht gespeichert werden." }); }
+    finally { setSaving(false); }
+  };
 
-  async function changePw(e) {
-    e.preventDefault();
-    setErrPw("");
-    if (!pw1 || pw1 !== pw2) {
-      setErrPw("Passwörter stimmen nicht überein.");
-      return;
-    }
+  const changePw = async (e) => {
+    e.preventDefault(); setErrPw(""); if (!pw1 || pw1 !== pw2) { setErrPw("Passwörter stimmen nicht überein."); return; }
     setBusyPw(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: pw1 });
-      if (error) throw error;
-      setPw1(""); setPw2("");
-      setBanner({ type: "success", msg: "Passwort aktualisiert." });
-    } catch (e) {
-      setErrPw(e?.message || "Passwort konnte nicht geändert werden.");
-    } finally {
-      setBusyPw(false);
-    }
-  }
+    try { const { error } = await supabase.auth.updateUser({ password: pw1 }); if (error) throw error; setPw1(""); setPw2(""); setBanner({ type: "success", msg: "Passwort aktualisiert." }); }
+    catch (e) { setErrPw(e?.message || "Passwort konnte nicht geändert werden."); }
+    finally { setBusyPw(false); }
+  };
 
   return (
     <div className="grid md:grid-cols-2 gap-6">
-      <Card title="Profil">
+      <Card title="Profil" subtitle="Dein öffentlicher Name">
         <form onSubmit={saveProfile} className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-sm text-neutral-300">Vorname</label>
-            <input
-              value={first}
-              onChange={(e) => setFirst(e.target.value)}
-              className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-              placeholder="Christina"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-3 py-2 rounded-md text-sm bg-emerald-600 disabled:opacity-60"
-          >
-            {saving ? "Speichere…" : "Speichern"}
-          </button>
+          <TextInput label="Vorname" value={first} onChange={(e)=>setFirst(e.target.value)} placeholder="Christina" />
+          <Button type="submit" disabled={saving}>{saving ? "Speichere…" : "Speichern"}</Button>
         </form>
       </Card>
-
-      <Card title="Passwort ändern">
+      <Card title="Passwort ändern" subtitle="Sicher & schnell">
         <form onSubmit={changePw} className="space-y-3">
-          <div className="space-y-1">
-            <label className="text-sm text-neutral-300">Neues Passwort</label>
-            <input
-              type="password"
-              value={pw1}
-              onChange={(e) => setPw1(e.target.value)}
-              className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-sm text-neutral-300">Wiederholen</label>
-            <input
-              type="password"
-              value={pw2}
-              onChange={(e) => setPw2(e.target.value)}
-              className="w-full rounded-md bg-neutral-900 border border-neutral-700 px-3 py-2"
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </div>
+          <TextInput label="Neues Passwort" type="password" value={pw1} onChange={(e)=>setPw1(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+          <TextInput label="Wiederholen" type="password" value={pw2} onChange={(e)=>setPw2(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
           {errPw && <div className="text-sm text-rose-400">{errPw}</div>}
-          <button
-            type="submit"
-            disabled={busyPw}
-            className="px-3 py-2 rounded-md text-sm bg-neutral-200 text-neutral-900 disabled:opacity-60"
-          >
-            {busyPw ? "Aktualisiere…" : "Passwort speichern"}
-          </button>
+          <Button type="submit" disabled={busyPw}>{busyPw ? "Aktualisiere…" : "Passwort speichern"}</Button>
         </form>
       </Card>
     </div>
   );
 }
 
-/* ------------------------- Haupt-App ------------------------- */
-
+/* ========================= APP ========================= */
 export default function App() {
   const [session, setSession] = useState(null);
   const [me, setMe] = useState(null);
   const [view, setView] = useState("home"); // home | login | register | recovery | account | admin
-  const [tool, setTool] = useState(null); // null | "pricefinder" | "messagematcher" | "contentflow"
+  const [tool, setTool] = useState(null);   // null | "pricefinder" | "messagematcher" | "contentflow"
   const [banner, setBanner] = useState(null);
 
-  // Hash-Handling (/#recovery)
-  useEffect(() => {
-    if (window.location.hash === "#recovery") {
-      setView("recovery");
-    }
-  }, []);
+  useEffect(() => { if (window.location.hash === "#recovery") setView("recovery"); }, []);
 
-  // Session laden und Profile syncen
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
-      setSession(data.session ?? null);
-    })();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
-      setSession(sess ?? null);
-    });
+    (async () => { const { data } = await supabase.auth.getSession(); if (mounted) setSession(data.session ?? null); })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess ?? null));
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // ✅ Profil sicher anlegen, ohne bestehende Rolle zu überschreiben
   useEffect(() => {
     let mounted = true;
     (async () => {
-      if (!session?.user?.id) {
-        setMe(null);
-        return;
-      }
+      if (!session?.user?.id) { setMe(null); return; }
       const uid = session.user.id;
-      const email = (session.user.email || "").toLowerCase();
-
-      // 1) versuchen zu lesen
-      const { data: existing, error: selErr } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", uid)
-        .single();
-
-      if (!mounted) return;
-
-      if (existing) {
-        setMe(existing);
-        return;
-      }
-
-      // 2) falls nicht vorhanden: anlegen (Standardrolle user)
-      if (selErr) {
-        const { data: inserted, error: insErr } = await supabase
-          .from("profiles")
-          .insert({ id: uid, email, role: "user" })
-          .select("*")
-          .single();
-        if (!insErr) setMe(inserted);
-      }
+      const { data: existing } = await supabase.from("profiles").select("*").eq("id", uid).single();
+      if (mounted && existing) setMe(existing);
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [session]);
 
-  // Automatische Banner-Ausblendung
-  useEffect(() => {
-    if (!banner) return;
-    const t = setTimeout(() => setBanner(null), 3500);
-    return () => clearTimeout(t);
-  }, [banner]);
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    setBanner({ type: "neutral", msg: "Abgemeldet." });
-    setTool(null);
-    setView("login");
-  }
-
-  // Begrüßungstext
   const greeting = useMemo(() => {
-    if (!me) return "";
-    const first = me.first_name?.trim();
-    if (first) return `Hey ${first}, lass uns heute kreativ sein. 🚀`;
+    if (!me) return ""; const first = me.first_name?.trim();
+    if (first) return `Hey ${first}, let’s move some mountains today ⚡️`;
     const nick = (me.email || "").split("@")[0];
-    return `Hey ${nick}, lass uns heute kreativ sein. 🚀`;
+    return `Hey ${nick}, let’s move some mountains today ⚡️`;
   }, [me]);
 
-  // Hilfskomponente: Kopfzeilen-Navigation für Tools
-  function ToolHeader() {
+  const handleLogout = async () => { await supabase.auth.signOut(); setBanner({ type: "neutral", msg: "Abgemeldet." }); setTool(null); setView("login"); };
+
+  const ToolHeader = () => {
     if (!tool) return null;
-    const title =
-      tool === "pricefinder"
-        ? "PriceFinder"
-        : tool === "messagematcher"
-        ? "MessageMatcher"
-        : "ContentFlow";
+    const title = tool === "pricefinder" ? "PriceFinder" : tool === "messagematcher" ? "MessageMatcher" : "ContentFlow";
     return (
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm opacity-70">Tool: {title}</div>
-        <button
-          className="px-3 py-1.5 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
-          onClick={() => setTool(null)}
-        >
-          ← Zurück
-        </button>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button className="text-sm text-neutral-400 hover:text-neutral-200" onClick={() => setTool(null)}>Home</button>
+          <span className="text-neutral-600">/</span>
+          <span className="text-sm" style={{ color: theme.gold }}>{title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setTool(null)}>← Zurück</Button>
+          <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Nach oben</Button>
+        </div>
       </div>
     );
-  }
+  };
+
+  const TopBar = () => (
+    <header className="mb-6 flex items-center justify-between">
+      <h1 className="text-xl font-bold" style={{ color: theme.gold }}>SmartBiz Suite</h1>
+      <nav className="flex gap-2">
+        {session ? (
+          <>
+            <Button variant="outline" onClick={() => { setTool(null); setView("home"); }}>Home</Button>
+            <Button variant="outline" onClick={() => { setTool(null); setView("account"); }}>Konto</Button>
+            {me?.role === "admin" && (
+              <Button variant="outline" onClick={() => { setTool(null); setView("admin"); }}>Admin</Button>
+            )}
+            <Button onClick={handleLogout}>Logout</Button>
+          </>
+        ) : (
+          <>
+            <Button variant="outline" onClick={() => setView("login")}>Login</Button>
+            <Button onClick={() => setView("register")}>Registrieren</Button>
+          </>
+        )}
+      </nav>
+    </header>
+  );
 
   return (
-    <div className="min-h-dvh bg-neutral-950 text-neutral-100">
-      <div className="mx-auto max-w-6xl p-4 md:p-6">
-        {/* Header */}
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="text-lg font-semibold">SmartBiz Suite</div>
-          <div className="flex items-center gap-2">
-            {!session && (
-              <>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-sm border ${view === "login" ? "bg-neutral-200 text-neutral-900 border-neutral-200" : "border-neutral-700 hover:border-neutral-500"}`}
-                  onClick={() => setView("login")}
-                >
-                  Login
-                </button>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-sm border ${view === "register" ? "bg-neutral-200 text-neutral-900 border-neutral-200" : "border-neutral-700 hover:border-neutral-500"}`}
-                  onClick={() => setView("register")}
-                >
-                  Registrieren
-                </button>
-              </>
-            )}
-            {session && (
-              <>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-sm border ${view === "home" && !tool ? "bg-neutral-200 text-neutral-900 border-neutral-200" : "border-neutral-700 hover:border-neutral-500"}`}
-                  onClick={() => { setTool(null); setView("home"); }}
-                >
-                  Home
-                </button>
-                <button
-                  className={`px-3 py-1.5 rounded-md text-sm border ${view === "account" ? "bg-neutral-200 text-neutral-900 border-neutral-200" : "border-neutral-700 hover:border-neutral-500"}`}
-                  onClick={() => { setTool(null); setView("account"); }}
-                >
-                  Konto
-                </button>
-                {me?.role === "admin" && (
-                  <button
-                    className={`px-3 py-1.5 rounded-md text-sm border ${view === "admin" ? "bg-emerald-600 border-emerald-600" : "border-neutral-700 hover:border-neutral-500"}`}
-                    onClick={() => { setTool(null); setView("admin"); }}
-                  >
-                    Admin
-                  </button>
-                )}
-                <button
-                  className="px-3 py-1.5 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
+    <div className={`min-h-screen ${theme.bg} ${theme.text}`}>
+      <div className="mx-auto max-w-6xl p-6">
+        <TopBar />
         <Banner banner={banner} onClose={() => setBanner(null)} />
         <ToolHeader />
 
-        {/* Content */}
         <main className="space-y-6">
-          {!session && view === "login" && (
-            <LoginView setBanner={setBanner} setView={setView} />
-          )}
-          {!session && view === "register" && (
-            <RegisterView setBanner={setBanner} setView={setView} />
-          )}
-          {view === "recovery" && <RecoveryView setBanner={setBanner} />}
-
+          {/* HOME */}
           {session && view === "home" && !tool && (
-            <>
-              <Card className="bg-neutral-900/30">
-                <div className="text-base">{greeting}</div>
+            <FadeIn inKey="home">
+              <Card className="text-center py-8">
+                <p className="text-lg font-medium text-neutral-300">{greeting}</p>
               </Card>
-
               <div className="grid md:grid-cols-3 gap-6">
-                <Card title="PriceFinder">
-                  <div className="text-sm opacity-80">
-                    Finde deinen Wohlfühl-, Wachstums- und Authority-Preis.
-                  </div>
-                  <div className="mt-3">
-                    <button
-                      className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
-                      onClick={() => setTool("pricefinder")}
-                    >
-                      Öffnen
-                    </button>
+                <Card title="PriceFinder" subtitle="Wohlfühl-, Wachstums- & Authority-Preis">
+                  <p className="text-sm text-neutral-400">Klarer, sauberer Pricing-Flow.</p>
+                  <div className="mt-4 text-center">
+                    <Button onClick={() => setTool("pricefinder")}>Öffnen</Button>
                   </div>
                 </Card>
-                <Card title="MessageMatcher">
-                  <div className="text-sm opacity-80">
-                    Analysiere Bio/Website und erhalte deine Messaging-Map.
-                  </div>
-                  <div className="mt-3">
-                    <button
-                      className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
-                      onClick={() => setTool("messagematcher")}
-                    >
-                      Öffnen
-                    </button>
+                <Card title="MessageMatcher" subtitle="Messaging-Map aus Bio/Website">
+                  <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
+                  <div className="mt-4 text-center">
+                    <Button onClick={() => setTool("messagematcher")}>Öffnen</Button>
                   </div>
                 </Card>
-                <Card title="ContentFlow">
-                  <div className="text-sm opacity-80">
-                    Generiere Hooks, Story-Outlines, Captions & Co.
-                  </div>
-                  <div className="mt-3">
-                    <button
-                      className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
-                      onClick={() => setTool("contentflow")}
-                    >
-                      Öffnen
-                    </button>
+                <Card title="ContentFlow" subtitle="Hooks, Stories, Captions">
+                  <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
+                  <div className="mt-4 text-center">
+                    <Button onClick={() => setTool("contentflow")}>Öffnen</Button>
                   </div>
                 </Card>
               </div>
-            </>
+            </FadeIn>
           )}
 
-          {/* 🔧 Tool Mounts */}
-          {session && tool === "pricefinder" && (
-            <Card className="bg-neutral-900/30">
-              <PriceFinder />
-            </Card>
+          {/* DASHBOARD TOOL LAYOUT */}
+          {session && tool && (
+            <FadeIn inKey={tool}>
+              <div className="grid lg:grid-cols-12 gap-6">
+                {/* Sidebar */}
+                <aside className="lg:col-span-3 space-y-3">
+                  <Card title="Navigation">
+                    <div className="grid gap-2">
+                      <Button variant="outline" className={`${tool==='pricefinder'?'opacity-100':'opacity-70'}`} onClick={() => setTool("pricefinder")}>PriceFinder</Button>
+                      <Button variant="outline" className={`${tool==='messagematcher'?'opacity-100':'opacity-70'}`} onClick={() => setTool("messagematcher")}>MessageMatcher</Button>
+                      <Button variant="outline" className={`${tool==='contentflow'?'opacity-100':'opacity-70'}`} onClick={() => setTool("contentflow")}>ContentFlow</Button>
+                    </div>
+                  </Card>
+                  <Card title="Quick Actions">
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Scroll Top</Button>
+                      <Button variant="outline" onClick={() => setTool(null)}>Zur Übersicht</Button>
+                    </div>
+                  </Card>
+                </aside>
+
+                {/* Main */}
+                <section className="lg:col-span-9 space-y-4">
+                  {tool === "pricefinder" && (
+                    <Card title="PriceFinder">
+                      <PriceFinder />
+                    </Card>
+                  )}
+                  {tool === "messagematcher" && (
+                    <Card title="MessageMatcher">
+                      <MessageMatcher />
+                    </Card>
+                  )}
+                  {tool === "contentflow" && (
+                    <Card title="ContentFlow">
+                      <ContentFlow />
+                    </Card>
+                  )}
+                </section>
+              </div>
+            </FadeIn>
           )}
 
-          {session && tool === "messagematcher" && (
-            <Card className="bg-neutral-900/30">
-              <MessageMatcher />
-            </Card>
+          {/* AUTH / ACCOUNT */}
+          {!session && view === "login" && (
+            <FadeIn inKey="login"><LoginView setBanner={setBanner} setView={setView} /></FadeIn>
           )}
-
-          {session && tool === "contentflow" && (
-            <Card className="bg-neutral-900/30">
-              <ContentFlow />
-            </Card>
+          {!session && view === "register" && (
+            <FadeIn inKey="register"><RegisterView setBanner={setBanner} setView={setView} /></FadeIn>
           )}
-
-          {session && view === "account" && me && !tool && (
-            <AccountView me={me} setBanner={setBanner} />
+          {view === "recovery" && (
+            <FadeIn inKey="recovery"><RecoveryView setBanner={setBanner} /></FadeIn>
           )}
-
+          {session && view === "account" && !tool && (
+            <FadeIn inKey="account"><AccountView me={me} setBanner={setBanner} /></FadeIn>
+          )}
           {session && view === "admin" && !tool && (
-            <Admin onBack={() => setView("home")} />
+            <FadeIn inKey="admin"><Admin onBack={() => setView("home")} /></FadeIn>
           )}
 
           {!session && !["login", "register", "recovery"].includes(view) && (
-            <div className="text-sm opacity-70">
-              Du bist nicht eingeloggt. Bitte <button className="underline" onClick={() => setView("login")}>einloggen</button>.
-            </div>
+            <div className="text-sm opacity-70">Du bist nicht eingeloggt. Bitte <button className="underline" onClick={() => setView("login")}>
+              einloggen</button>.</div>
           )}
         </main>
       </div>
     </div>
+  );
+}
+
+/* ========================= REGISTER VIEW (separat, damit oben kompakt bleibt) ========================= */
+function RegisterView({ setBanner, setView }) {
+  const [first, setFirst] = useState("");
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const signUp = async (emailRaw, password) => {
+    const email = (emailRaw || "").trim().toLowerCase();
+    return supabase.auth.signUp({ email, password });
+  };
+
+  const onRegister = async (e) => {
+    e.preventDefault(); setLoading(true); setErr("");
+    try {
+      const { data, error } = await signUp(email, pw);
+      if (error) throw error;
+      const uid = data?.user?.id;
+      if (uid) {
+        const { error: pe } = await supabase.from("profiles").upsert({ id: uid, email: email.trim().toLowerCase(), role: "user", first_name: first || null });
+        if (pe) throw pe;
+      }
+      setBanner({ type: "success", msg: "Registrierung erfolgreich. Bitte einloggen." });
+      setView("login");
+    } catch (e) { setErr(e?.message || "Registrierung fehlgeschlagen."); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <Card title="Registrieren" subtitle="Starte los">
+      <form className="space-y-3" onSubmit={onRegister}>
+        <TextInput label="Vorname" value={first} onChange={(e)=>setFirst(e.target.value)} placeholder="Christina" />
+        <TextInput label="E-Mail" value={email} onChange={(e)=>setEmail(e.target.value)} placeholder="you@domain.com" autoComplete="username" />
+        <TextInput label="Passwort" type="password" value={pw} onChange={(e)=>setPw(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+        {err && <div className="text-sm text-rose-400">{err}</div>}
+        <div className="flex gap-3">
+          <Button type="submit" disabled={loading}>{loading ? "Registriere…" : "Registrieren"}</Button>
+          <Button variant="outline" onClick={() => setView("login")}>Zurück zum Login</Button>
+        </div>
+      </form>
+    </Card>
   );
 }
