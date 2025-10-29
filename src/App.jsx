@@ -76,8 +76,8 @@ function Button({ children, onClick, variant = "solid", className = "", type = "
       {children}
     </button>
   );
-}] text-black hover:bg-[${theme.goldHover}]`
-      : `border border-[${theme.gold}] text-[${theme.gold}] hover:bg-[${theme.gold}] hover:text-black`;
+}] text-black hover:bg-[var(--goldHover)]`
+      : `border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black`;
   return (
     <button
       type={type}
