@@ -96,18 +96,26 @@ function Header({ userEmail, isAdmin, onNav, onLogout }) {
 function Login({ onSuccess }) {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
-  const [mode, setMode] = useState("login"); // 'login' | 'signup'
+  const [pw2, setPw2] = useState("");
+  const [mode, setMode] = useState("login"); // 'login' | 'signup' | 'reset'
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Wenn aus dem Reset-Link gekommen (Supabase setzt type=recovery im Hash)
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    if (hash.get("type") === "recovery") {
+      setMode("reset");
+      setErr(""); setMsg("Bitte neues Passwort setzen.");
+    }
+  }, []);
 
   async function handleLogin(e) {
     e.preventDefault();
     setErr(""); setMsg(""); setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email, password: pw,
-      });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pw });
       if (error) throw error;
       onSuccess?.(data?.user || null);
     } catch (e) {
@@ -122,9 +130,144 @@ function Login({ onSuccess }) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password: pw,
-        options: { emailRedirectTo: window.location.origin }, // oder deine Prod-URL
+        options: { emailRedirectTo: window.location.origin + "/#recovery" }
       });
       if (error) throw error;
+      if (!data?.session) {
+        setMsg("Bestätigungs-E-Mail gesendet. Bitte Postfach prüfen.");
+      } else {
+        onSuccess?.(data?.user || null);
+      }
+    } catch (e) {
+      setErr(e.message || "Registrierung fehlgeschlagen.");
+    } finally { setLoading(false); }
+  }
+
+  async function handleForgot() {
+    setErr(""); setMsg("");
+    if (!email) { setErr("Bitte deine E-Mail eintragen und dann „Passwort vergessen?“ klicken."); return; }
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/#recovery",
+      });
+      if (error) throw error;
+      setMsg("Reset-Link gesendet. Bitte E-Mail prüfen.");
+    } catch (e) {
+      setErr(e.message || "Senden fehlgeschlagen.");
+    } finally { setLoading(false); }
+  }
+
+  async function handleReset(e) {
+    e.preventDefault();
+    setErr(""); setMsg(""); setLoading(true);
+    try {
+      if (pw.length < 6) throw new Error("Passwort min. 6 Zeichen.");
+      if (pw !== pw2) throw new Error("Passwörter stimmen nicht überein.");
+      const { error } = await supabase.auth.updateUser({ password: pw });
+      if (error) throw error;
+      setMsg("Passwort aktualisiert. Du bist angemeldet.");
+      // Optional: Hard reload, falls du direkt ins Dashboard willst
+      setTimeout(() => window.location.replace("/"), 800);
+    } catch (e) {
+      setErr(e.message || "Reset fehlgeschlagen.");
+    } finally { setLoading(false); }
+  }
+
+  const onSubmit = mode === "login" ? handleLogin
+                  : mode === "signup" ? handleSignup
+                  : handleReset;
+
+  return (
+    <div className="min-h-screen grid place-items-center bg-gray-50">
+      <form onSubmit={onSubmit} className="w-full max-w-sm bg-white p-6 rounded-2xl border">
+        <h1 className="text-lg font-semibold">
+          {mode === "login" ? "Login" : mode === "signup" ? "Registrieren" : "Passwort zurücksetzen"}
+        </h1>
+        <p className="text-sm text-gray-600 mt-1">
+          {mode === "login" && "Melde dich mit deinem Account an."}
+          {mode === "signup" && "Erstelle deinen Account."}
+          {mode === "reset" && "Setze jetzt dein neues Passwort."}
+        </p>
+
+        <div className="mt-4 space-y-3">
+          {/* Email in allen Modi außer Reset ist Pflicht; bei Reset ist sie im Token */}
+          {mode !== "reset" && (
+            <div>
+              <label className="text-sm">E-Mail</label>
+              <input type="email" className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
+                     value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+          )}
+
+          {(mode === "login" || mode === "signup") && (
+            <div>
+              <label className="text-sm">Passwort</label>
+              <input type="password" className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
+                     value={pw} onChange={(e) => setPw(e.target.value)} required minLength={6} />
+            </div>
+          )}
+
+          {mode === "reset" && (
+            <>
+              <div>
+                <label className="text-sm">Neues Passwort</label>
+                <input type="password" className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
+                       value={pw} onChange={(e) => setPw(e.target.value)} required minLength={6} />
+              </div>
+              <div>
+                <label className="text-sm">Neues Passwort wiederholen</label>
+                <input type="password" className="w-full mt-1 border rounded-lg px-3 py-2 text-sm"
+                       value={pw2} onChange={(e) => setPw2(e.target.value)} required minLength={6} />
+              </div>
+            </>
+          )}
+        </div>
+
+        {err && <p className="text-red-600 text-sm mt-3">{err}</p>}
+        {msg && <p className="text-green-600 text-sm mt-3">{msg}</p>}
+
+        <Button className="mt-4 w-full" disabled={loading}>
+          {loading
+            ? (mode === "login" ? "Login…" : mode === "signup" ? "Registriere…" : "Speichere…")
+            : (mode === "login" ? "Einloggen" : mode === "signup" ? "Registrieren" : "Passwort speichern")}
+        </Button>
+
+        {/* Footer-Links */}
+        <div className="text-sm text-gray-600 mt-4 text-center space-y-1">
+          {mode !== "reset" && (
+            <div>
+              <button type="button" className="underline" onClick={handleForgot}>
+                Passwort vergessen?
+              </button>
+            </div>
+          )}
+          <div>
+            {mode === "login" ? (
+              <>Kein Account?{" "}
+                <button type="button" className="underline"
+                        onClick={() => { setMode("signup"); setErr(""); setMsg(""); }}>
+                  Jetzt registrieren
+                </button></>
+            ) : mode === "signup" ? (
+              <>Bereits Account?{" "}
+                <button type="button" className="underline"
+                        onClick={() => { setMode("login"); setErr(""); setMsg(""); }}>
+                  Hier einloggen
+                </button></>
+            ) : (
+              <>Zurück zum{" "}
+                <button type="button" className="underline"
+                        onClick={() => { setMode("login"); setErr(""); setMsg(""); }}>
+                  Login
+                </button></>
+            )}
+          </div>
+        </div>
+      </form>
+    </div>
+  );
+}
 
       // Wenn E-Mail-Bestätigung aus: User ist eingeloggt -> reload
       if (data?.user && !data?.session) {
