@@ -3,6 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 import Admin from "./pages/admin"; // Datei: src/pages/admin.jsx (klein geschrieben)
 
+// 🔌 Tools (achte auf die exakten Dateinamen unter src/modules)
+// Wenn deine Datei "ContenFlow.jsx" heißt (ohne "t"), ändere den Import unten auf "./modules/ContenFlow".
+import PriceFinder from "./modules/PriceFinder";
+import MessageMatcher from "./modules/MessageMatcher";
+import ContentFlow from "./modules/ContentFlow";
+
 function Card({ title, className = "", children }) {
   return (
     <div className={`rounded-xl border border-neutral-800 bg-neutral-900/40 p-4 ${className}`}>
@@ -458,6 +464,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [me, setMe] = useState(null);
   const [view, setView] = useState("home"); // home | login | register | recovery | account | admin
+  const [tool, setTool] = useState(null); // null | "pricefinder" | "messagematcher" | "contentflow"
   const [banner, setBanner] = useState(null);
 
   // Hash-Handling (/#recovery)
@@ -482,7 +489,7 @@ export default function App() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Profil nachladen/updaten
+  // ✅ Profil sicher anlegen, ohne bestehende Rolle zu überschreiben
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -493,16 +500,29 @@ export default function App() {
       const uid = session.user.id;
       const email = (session.user.email || "").toLowerCase();
 
-      // sicherstellen, dass Profil existiert
-      const { data: p, error } = await supabase
+      // 1) versuchen zu lesen
+      const { data: existing, error: selErr } = await supabase
         .from("profiles")
-        .upsert({ id: uid, email, role: "user" }, { onConflict: "id" })
         .select("*")
         .eq("id", uid)
         .single();
 
       if (!mounted) return;
-      if (!error) setMe(p || null);
+
+      if (existing) {
+        setMe(existing);
+        return;
+      }
+
+      // 2) falls nicht vorhanden: anlegen (Standardrolle user)
+      if (selErr) {
+        const { data: inserted, error: insErr } = await supabase
+          .from("profiles")
+          .insert({ id: uid, email, role: "user" })
+          .select("*")
+          .single();
+        if (!insErr) setMe(inserted);
+      }
     })();
     return () => {
       mounted = false;
@@ -519,6 +539,7 @@ export default function App() {
   async function handleLogout() {
     await supabase.auth.signOut();
     setBanner({ type: "neutral", msg: "Abgemeldet." });
+    setTool(null);
     setView("login");
   }
 
@@ -530,6 +551,28 @@ export default function App() {
     const nick = (me.email || "").split("@")[0];
     return `Hey ${nick}, lass uns heute kreativ sein. 🚀`;
   }, [me]);
+
+  // Hilfskomponente: Kopfzeilen-Navigation für Tools
+  function ToolHeader() {
+    if (!tool) return null;
+    const title =
+      tool === "pricefinder"
+        ? "PriceFinder"
+        : tool === "messagematcher"
+        ? "MessageMatcher"
+        : "ContentFlow";
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm opacity-70">Tool: {title}</div>
+        <button
+          className="px-3 py-1.5 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+          onClick={() => setTool(null)}
+        >
+          ← Zurück
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-neutral-950 text-neutral-100">
@@ -557,21 +600,21 @@ export default function App() {
             {session && (
               <>
                 <button
-                  className={`px-3 py-1.5 rounded-md text-sm border ${view === "home" ? "bg-neutral-200 text-neutral-900 border-neutral-200" : "border-neutral-700 hover:border-neutral-500"}`}
-                  onClick={() => setView("home")}
+                  className={`px-3 py-1.5 rounded-md text-sm border ${view === "home" && !tool ? "bg-neutral-200 text-neutral-900 border-neutral-200" : "border-neutral-700 hover:border-neutral-500"}`}
+                  onClick={() => { setTool(null); setView("home"); }}
                 >
                   Home
                 </button>
                 <button
                   className={`px-3 py-1.5 rounded-md text-sm border ${view === "account" ? "bg-neutral-200 text-neutral-900 border-neutral-200" : "border-neutral-700 hover:border-neutral-500"}`}
-                  onClick={() => setView("account")}
+                  onClick={() => { setTool(null); setView("account"); }}
                 >
                   Konto
                 </button>
                 {me?.role === "admin" && (
                   <button
                     className={`px-3 py-1.5 rounded-md text-sm border ${view === "admin" ? "bg-emerald-600 border-emerald-600" : "border-neutral-700 hover:border-neutral-500"}`}
-                    onClick={() => setView("admin")}
+                    onClick={() => { setTool(null); setView("admin"); }}
                   >
                     Admin
                   </button>
@@ -588,6 +631,7 @@ export default function App() {
         </div>
 
         <Banner banner={banner} onClose={() => setBanner(null)} />
+        <ToolHeader />
 
         {/* Content */}
         <main className="space-y-6">
@@ -599,7 +643,7 @@ export default function App() {
           )}
           {view === "recovery" && <RecoveryView setBanner={setBanner} />}
 
-          {session && view === "home" && (
+          {session && view === "home" && !tool && (
             <>
               <Card className="bg-neutral-900/30">
                 <div className="text-base">{greeting}</div>
@@ -611,7 +655,10 @@ export default function App() {
                     Finde deinen Wohlfühl-, Wachstums- und Authority-Preis.
                   </div>
                   <div className="mt-3">
-                    <button className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500">
+                    <button
+                      className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+                      onClick={() => setTool("pricefinder")}
+                    >
                       Öffnen
                     </button>
                   </div>
@@ -621,7 +668,10 @@ export default function App() {
                     Analysiere Bio/Website und erhalte deine Messaging-Map.
                   </div>
                   <div className="mt-3">
-                    <button className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500">
+                    <button
+                      className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+                      onClick={() => setTool("messagematcher")}
+                    >
                       Öffnen
                     </button>
                   </div>
@@ -631,7 +681,10 @@ export default function App() {
                     Generiere Hooks, Story-Outlines, Captions & Co.
                   </div>
                   <div className="mt-3">
-                    <button className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500">
+                    <button
+                      className="px-3 py-2 rounded-md text-sm border border-neutral-700 hover:border-neutral-500"
+                      onClick={() => setTool("contentflow")}
+                    >
                       Öffnen
                     </button>
                   </div>
@@ -640,11 +693,30 @@ export default function App() {
             </>
           )}
 
-          {session && view === "account" && me && (
+          {/* 🔧 Tool Mounts */}
+          {session && tool === "pricefinder" && (
+            <Card className="bg-neutral-900/30">
+              <PriceFinder />
+            </Card>
+          )}
+
+          {session && tool === "messagematcher" && (
+            <Card className="bg-neutral-900/30">
+              <MessageMatcher />
+            </Card>
+          )}
+
+          {session && tool === "contentflow" && (
+            <Card className="bg-neutral-900/30">
+              <ContentFlow />
+            </Card>
+          )}
+
+          {session && view === "account" && me && !tool && (
             <AccountView me={me} setBanner={setBanner} />
           )}
 
-          {session && view === "admin" && (
+          {session && view === "admin" && !tool && (
             <Admin onBack={() => setView("home")} />
           )}
 
