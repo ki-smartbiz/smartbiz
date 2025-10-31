@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
-// Wichtig: admin.jsx ist kleingeschrieben
+// WICHTIG: Datei heißt admin.jsx (klein)
 import Admin from "./pages/admin";
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
@@ -552,6 +552,7 @@ function RegisterView({ setBanner, setView }) {
   const signUp = (emailRaw, password) => {
     const email = (emailRaw || "").trim().toLowerCase();
     return supabase.auth.signUp({ email, password });
+    // Supabase sendet ggf. Bestätigungs-Mail je nach Project-Settings
   };
 
   const onRegister = async (e) => {
