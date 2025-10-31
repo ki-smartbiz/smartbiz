@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
 // Wichtig: Groß-/Kleinschreibung exakt wie Dateinamen
-import Admin from "./pages/Admin";
+import Admin from "./pages/admin";
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
 import ContentFlow from "./modules/ContentFlow";
