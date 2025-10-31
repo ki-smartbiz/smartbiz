@@ -3,6 +3,19 @@
 /* Tailwind v4: ein Import reicht */
 @import "tailwindcss";
 
+/* Shell erzwingt echte Mitte – unabhängig von Fremd-Layouts */
+.app-shell {
+  max-width: 80rem;        /* ≈ max-w-7xl */
+  margin-inline: auto;     /* horizontales Zentrieren */
+  padding-left: 1rem;      /* ≈ px-4 */
+  padding-right: 1rem;
+  padding-top: 1.5rem;     /* ≈ py-6 */
+  padding-bottom: 1.5rem;
+}
+@media (min-width: 640px) { .app-shell { padding-left: 1.5rem; padding-right: 1.5rem; } }  /* sm:px-6 */
+@media (min-width: 1024px){ .app-shell { padding-left: 2rem;   padding-right: 2rem;   } }  /* lg:px-8 */
+
+
 /* Basis: keine globalen Flex/Grid-Overrides, nix klebt links,
    und es bleibt auch ohne Tailwind dunkel (Fallback). */
 :root { color-scheme: dark; }
