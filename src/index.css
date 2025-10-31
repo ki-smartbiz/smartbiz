@@ -1,46 +1,90 @@
-/* src/index.css — Tailwind v4 */
+/* src/index.css — kompatibel mit Tailwind v4 */
 
-/* Tailwind v4: ein Import reicht */
+/* ----------------------------------------
+   1) Tailwind importieren
+   ---------------------------------------- */
 @import "tailwindcss";
 
-/* Shell erzwingt echte Mitte – unabhängig von Fremd-Layouts */
+/* ----------------------------------------
+   2) App-Shell (zentriert & responsiv)
+   ---------------------------------------- */
 .app-shell {
-  max-width: 80rem;        /* ≈ max-w-7xl */
-  margin-inline: auto;     /* horizontales Zentrieren */
-  padding-left: 1rem;      /* ≈ px-4 */
+  max-width: 80rem;           /* entspricht max-w-7xl */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;         /* px-4 */
   padding-right: 1rem;
-  padding-top: 1.5rem;     /* ≈ py-6 */
+  padding-top: 1.5rem;        /* py-6 */
   padding-bottom: 1.5rem;
 }
-@media (min-width: 640px) { .app-shell { padding-left: 1.5rem; padding-right: 1.5rem; } }  /* sm:px-6 */
-@media (min-width: 1024px){ .app-shell { padding-left: 2rem;   padding-right: 2rem;   } }  /* lg:px-8 */
 
+@media (min-width: 640px) {
+  .app-shell {
+    padding-left: 1.5rem;     /* sm:px-6 */
+    padding-right: 1.5rem;
+  }
+}
 
-/* Basis: keine globalen Flex/Grid-Overrides, nix klebt links,
-   und es bleibt auch ohne Tailwind dunkel (Fallback). */
-:root { color-scheme: dark; }
+@media (min-width: 1024px) {
+  .app-shell {
+    padding-left: 2rem;       /* lg:px-8 */
+    padding-right: 2rem;
+  }
+}
 
-html, body, #root {
+/* ----------------------------------------
+   3) Basislayout – neutral, nichts klebt links
+   ---------------------------------------- */
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
+  padding: 0;
 }
 
-#root { display: block; }        /* ganz wichtig: kein flex/grid am Root */
-* { box-sizing: border-box; }
+#root {
+  display: block;             /* kein flex/grid */
+}
 
-/* Fallback-Styles (falls CSS mal vor Tailwind lädt) */
+* {
+  box-sizing: border-box;
+}
+
+/* ----------------------------------------
+   4) Typografie & Grundfarben
+   ---------------------------------------- */
 body {
-  background: #0b0b0b;
+  background-color: #0b0b0b;  /* dunkles Default-Theme */
   color: #f5f5f5;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Ubuntu, Cantarell, "Noto Sans", "Helvetica Neue", Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
-               Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji",
-               "Segoe UI Emoji";
 }
 
-/* Nützliche Defaults, ohne dein Layout zu beeinflussen */
-img, svg, video, canvas {
+/* ----------------------------------------
+   5) Medien-Defaults – sauber & responsive
+   ---------------------------------------- */
+img,
+svg,
+video,
+canvas {
   display: block;
   max-width: 100%;
+  height: auto;
 }
+
+/* ----------------------------------------
+   6) Utility: Debug-Rahmen (bei Bedarf aktivieren)
+   ---------------------------------------- */
+/*
+.app-shell {
+  outline: 1px dashed #444;
+}
+*/
