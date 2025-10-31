@@ -1,8 +1,8 @@
-// src/App.jsx — dark+gold, zentriert, Dashboard, feine Buttons (build-fähig)
+// src/App.jsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
-// admin.jsx ist klein geschrieben
+// Wichtig: admin.jsx ist kleingeschrieben
 import Admin from "./pages/admin";
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
@@ -11,8 +11,6 @@ import ContentFlow from "./modules/ContentFlow";
 /* ========================= THEME ========================= */
 const theme = {
   bg: "bg-[#0b0b0b]",
-  card: "bg-[#141414] border border-[#2a2a2a]",
-  cardHover: "hover:border-[#3a3a3a] hover:shadow-[0_10px_30px_rgba(0,0,0,0.35)]",
   text: "text-neutral-100",
   gold: "#d1a45f",
   goldHover: "#c2924d",
@@ -43,7 +41,6 @@ function Card({ title, subtitle, className = "", children, align = "center" }) {
   );
 }
 
-
 function Banner({ banner, onClose }) {
   if (!banner) return null;
   const color =
@@ -51,21 +48,32 @@ function Banner({ banner, onClose }) {
       ? "bg-emerald-900/40 border-emerald-700 text-emerald-200"
       : banner.type === "error"
       ? "bg-rose-900/40 border-rose-700 text-rose-200"
-      : `${theme.card} ${theme.text}`;
+      : "bg-[#141414] border border-[#2a2a2a] text-neutral-100";
   return (
-    <div className={`mb-4 rounded-lg border px-4 py-2 text-sm ${color}`}>
+    <div className={`mb-4 rounded-lg px-4 py-2 text-sm ${color}`}>
       <div className="flex items-start justify-between gap-3">
         <div>{banner.msg}</div>
-        <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose} aria-label="Close">✕</button>
+        <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
       </div>
     </div>
   );
 }
 
-function Button({ children, onClick, variant = "solid", className = "", type = "button", disabled = false, full = false }) {
+function Button({
+  children,
+  onClick,
+  variant = "solid",
+  className = "",
+  type = "button",
+  disabled = false,
+  full = false,
+}) {
   const styleVars = { "--gold": theme.gold, "--goldHover": theme.goldHover };
   const baseSolid = "hover:bg-[var(--goldHover)]";
-  const baseOutline = "border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black";
+  const baseOutline =
+    "border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black";
   const base = variant === "solid" ? baseSolid : baseOutline;
   const inlineSolid = variant === "solid" ? { backgroundColor: "var(--gold)", color: "#0b0b0b" } : {};
   const widthCls = full ? "w-full" : "";
@@ -90,7 +98,9 @@ function FadeIn({ children, inKey }) {
     return () => clearTimeout(t);
   }, [inKey]);
   return (
-    <div className={`transform transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>{children}</div>
+    <div className={`transform transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+      {children}
+    </div>
   );
 }
 
@@ -135,39 +145,42 @@ function LoginView({ setBanner, setView }) {
 
   const onLogin = async (e) => {
     e.preventDefault();
-    setLoading(true); setErr("");
+    setLoading(true);
+    setErr("");
     try {
       const { error } = await signInWithPassword(email, pw);
       if (error) throw error;
       setBanner({ type: "success", msg: "Eingeloggt. Willkommen zurück!" });
-    } catch (e) {
-      setErr(e?.message || "Invalid login credentials.");
+    } catch (e2) {
+      setErr(e2?.message || "Invalid login credentials.");
     } finally {
       setLoading(false);
     }
   };
   const onMagic = async (e) => {
     e.preventDefault();
-    setLoading(true); setErr("");
+    setLoading(true);
+    setErr("");
     try {
       const { error } = await signInWithMagicLink(email);
       if (error) throw error;
       setBanner({ type: "success", msg: "Magic Link gesendet. Prüfe dein Postfach." });
-    } catch (e) {
-      setErr(e?.message || "Magic Link konnte nicht gesendet werden.");
+    } catch (e2) {
+      setErr(e2?.message || "Magic Link konnte nicht gesendet werden.");
     } finally {
       setLoading(false);
     }
   };
   const onForgot = async (e) => {
     e.preventDefault();
-    setLoading(true); setErr("");
+    setLoading(true);
+    setErr("");
     try {
       const { error } = await sendReset(email);
       if (error) throw error;
       setBanner({ type: "success", msg: "Reset-Link verschickt. Prüfe dein Postfach." });
-    } catch (e) {
-      setErr(e?.message || "Reset-E-Mail konnte nicht gesendet werden.");
+    } catch (e2) {
+      setErr(e2?.message || "Reset-E-Mail konnte nicht gesendet werden.");
     } finally {
       setLoading(false);
     }
@@ -210,8 +223,8 @@ function RecoveryView({ setBanner }) {
       if (error) throw error;
       setBanner({ type: "success", msg: "Passwort gesetzt. Du bist eingeloggt." });
       if (typeof window !== "undefined") window.history.replaceState({}, "", window.location.pathname);
-    } catch (e) {
-      setErr(e?.message || "Passwort konnte nicht gesetzt werden.");
+    } catch (e2) {
+      setErr(e2?.message || "Passwort konnte nicht gesetzt werden.");
     } finally {
       setLoading(false);
     }
@@ -262,10 +275,11 @@ function AccountView({ me, setBanner }) {
     try {
       const { error } = await supabase.auth.updateUser({ password: pw1 });
       if (error) throw error;
-      setPw1(""); setPw2("");
+      setPw1("");
+      setPw2("");
       setBanner({ type: "success", msg: "Passwort aktualisiert." });
-    } catch (e) {
-      setErrPw(e?.message || "Passwort konnte nicht geändert werden.");
+    } catch (e2) {
+      setErrPw(e2?.message || "Passwort konnte nicht geändert werden.");
     } finally {
       setBusyPw(false);
     }
@@ -341,7 +355,9 @@ export default function App() {
 
   const ToolHeader = () => {
     if (!tool) return null;
-    const title = tool === "pricefinder" ? "PriceFinder" : tool === "messagematcher" ? "MessageMatcher" : "ContentFlow";
+    const title =
+      tool === "pricefinder" ? "PriceFinder" :
+      tool === "messagematcher" ? "MessageMatcher" : "ContentFlow";
     return (
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -384,7 +400,8 @@ export default function App() {
 
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.text}`}>
-     <div className="app-shell">
+      {/* HARTE Zentrierung über .app-shell (siehe index.css) */}
+      <div className="app-shell">
         <TopBar />
         <Banner banner={banner} onClose={() => setBanner(null)} />
         <ToolHeader />
@@ -392,55 +409,55 @@ export default function App() {
         <main className="space-y-10">
           {/* HOME */}
           {session && view === "home" && !tool && (
-  <FadeIn inKey="home">
-    {/* Begrüßung als echte Card, mittig */}
-    <section className="max-w-3xl mx-auto">
-      <Card className="py-10">
-        <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
-      </Card>
-    </section>
+            <FadeIn inKey="home">
+              {/* Begrüßung */}
+              <section className="max-w-3xl mx-auto">
+                <Card className="py-10">
+                  <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
+                </Card>
+              </section>
 
-    {/* App-Karten – FLEX + feste Breite + mx-auto => immer mittig */}
-    <section className="max-w-7xl mx-auto">
-      <div className="flex flex-wrap justify-center gap-8">
-        <Card
-          title="PriceFinder"
-          subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
-          className="w-[22rem] mx-auto"
-        >
-          <p className="text-sm text-neutral-400">Klarer, sauberer Pricing-Flow.</p>
-          <div className="mt-6">
-            <Button onClick={() => setTool("pricefinder")} full>Öffnen</Button>
-          </div>
-        </Card>
+              {/* Apps – immer zentriert */}
+              <section className="max-w-7xl mx-auto">
+                <div className="flex flex-wrap justify-center gap-8">
+                  <Card
+                    title="PriceFinder"
+                    subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
+                    className="w-[22rem] mx-auto"
+                  >
+                    <p className="text-sm text-neutral-400">Klarer, sauberer Pricing-Flow.</p>
+                    <div className="mt-6">
+                      <Button onClick={() => setTool("pricefinder")} full>Öffnen</Button>
+                    </div>
+                  </Card>
 
-        <Card
-          title="MessageMatcher"
-          subtitle="Messaging-Map aus Bio/Website"
-          className="w-[22rem] mx-auto"
-        >
-          <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
-          <div className="mt-6">
-            <Button onClick={() => setTool("messagematcher")} full>Öffnen</Button>
-          </div>
-        </Card>
+                  <Card
+                    title="MessageMatcher"
+                    subtitle="Messaging-Map aus Bio/Website"
+                    className="w-[22rem] mx-auto"
+                  >
+                    <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
+                    <div className="mt-6">
+                      <Button onClick={() => setTool("messagematcher")} full>Öffnen</Button>
+                    </div>
+                  </Card>
 
-        <Card
-          title="ContentFlow"
-          subtitle="Hooks, Stories, Captions"
-          className="w-[22rem] mx-auto"
-        >
-          <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
-          <div className="mt-6">
-            <Button onClick={() => setTool("contentflow")} full>Öffnen</Button>
-          </div>
-        </Card>
-      </div>
-    </section>
-  </FadeIn>
-)}
+                  <Card
+                    title="ContentFlow"
+                    subtitle="Hooks, Stories, Captions"
+                    className="w-[22rem] mx-auto"
+                  >
+                    <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
+                    <div className="mt-6">
+                      <Button onClick={() => setTool("contentflow")} full>Öffnen</Button>
+                    </div>
+                  </Card>
+                </div>
+              </section>
+            </FadeIn>
+          )}
 
-          {/* DASHBOARD TOOL LAYOUT */}
+          {/* TOOL-DASHBOARD */}
           {session && tool && (
             <FadeIn inKey={tool}>
               <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-6">
@@ -483,7 +500,7 @@ export default function App() {
             </FadeIn>
           )}
 
-          {/* AUTH / ACCOUNT */}
+          {/* AUTH / ACCOUNT / ADMIN */}
           {!session && view === "login" && (
             <FadeIn inKey="login">
               <LoginView setBanner={setBanner} setView={setView} />
@@ -513,7 +530,9 @@ export default function App() {
           {!session && !["login", "register", "recovery"].includes(view) && (
             <div className="text-sm opacity-70 text-center">
               Du bist nicht eingeloggt. Bitte{" "}
-              <button className="underline" onClick={() => setView("login")}>einloggen</button>.
+              <button className="underline" onClick={() => setView("login")}>
+                einloggen
+              </button>.
             </div>
           )}
         </main>
@@ -544,18 +563,20 @@ function RegisterView({ setBanner, setView }) {
       if (error) throw error;
       const uid = data?.user?.id;
       if (uid) {
-        const { error: pe } = await supabase.from("profiles").upsert({
-          id: uid,
-          email: email.trim().toLowerCase(),
-          role: "user",
-          first_name: first || null,
-        });
+        const { error: pe } = await supabase
+          .from("profiles")
+          .upsert({
+            id: uid,
+            email: email.trim().toLowerCase(),
+            role: "user",
+            first_name: first || null,
+          });
         if (pe) throw pe;
       }
       setBanner({ type: "success", msg: "Registrierung erfolgreich. Bitte einloggen." });
       setView("login");
-    } catch (e) {
-      setErr(e?.message || "Registrierung fehlgeschlagen.");
+    } catch (e2) {
+      setErr(e2?.message || "Registrierung fehlgeschlagen.");
     } finally {
       setLoading(false);
     }
