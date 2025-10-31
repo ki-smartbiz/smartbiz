@@ -1,0 +1,18 @@
+/* Tailwind core */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hard reset: keine globalen Layout-Overrides */
+html, body, #root {
+  height: 100%;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+
+/* Kritisch: Root darf KEIN flex/grid haben */
+#root { display: block; }
+
+/* Optional: Fallback-Background (Tailwind macht die echte Farbe) */
+:root { --app-bg: #0b0b0b; }
