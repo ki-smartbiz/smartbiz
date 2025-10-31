@@ -1,14 +1,8 @@
-/* Tailwind einbinden */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* src/index.css */
+@import "tailwindcss";
 
-/* Neutral – kein globales Flex/Grid, nichts, was das Layout verbiegt */
 html, body, #root { height: 100%; margin: 0; }
 * { box-sizing: border-box; }
 
-/* Fallback-Farben (Tailwind macht die eigentliche Theme-Farbe in App.jsx) */
-body { background: #0b0b0b; color: #f5f5f5; }
-
-/* WICHTIG: Root darf kein flex/grid erzwingen */
-#root { display: block; }
+body { background: #0b0b0b; color: #f5f5f5; } /* Fallback */
+#root { display: block; } /* keine globalen Flex/Grid-Overrides */
