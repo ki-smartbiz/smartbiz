@@ -64,10 +64,23 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
+
+          # Verbindungs-Settings
+          protocol: ftps              # explizites FTPS
           port: 21
-          local-dir: dist/    # Slash am Ende korrekt
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          security: controlOnly       # <<< FIX: TLS nur auf Control-Channel (verhindert data-socket-Resets)
+          passive: true               # (Standard, hier explizit)
+
+          # Laufzeit
+          timeout: 120000             # 120s, hilft bei trägen Servern
+          max-tries: 3
+          log-level: verbose
+
+          # Deploy-Ziel
+          local-dir: dist/            # Slash am Ende
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}  # z. B. "/ai-smartbiz/" (mit Slash am Ende!)
+
+          # sicher deployen
           dangerous-clean-slate: false
           exclude: |
             **/.git*
@@ -76,3 +89,4 @@ jobs:
             **/src/**
             **/package*.json
             **/vite.config.*
+          state-name: .ftp-deploy-sync-state.json   # inkrementelles Sync, weniger Datenkanal-Last
