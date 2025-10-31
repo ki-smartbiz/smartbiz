@@ -1,26 +1,73 @@
+name: SmartBiz CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'     # nutzt package-lock.json falls vorhanden (optional)
+
+      - name: Check required secrets
+        run: |
+          missing=""
+          [ -z "${{ secrets.VITE_SUPABASE_URL }}" ] && missing="${missing} VITE_SUPABASE_URL"
+          [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ] && missing="${missing} VITE_SUPABASE_ANON_KEY"
+          [ -z "${{ secrets.VITE_PROXY_URL }}" ] && missing="${missing} VITE_PROXY_URL"
+          [ -z "${{ secrets.FTP_SERVER }}" ] && missing="${missing} FTP_SERVER"
+          [ -z "${{ secrets.FTP_USERNAME }}" ] && missing="${missing} FTP_USERNAME"
+          [ -z "${{ secrets.FTP_PASSWORD }}" ] && missing="${missing} FTP_PASSWORD"
+          [ -z "${{ secrets.FTP_REMOTE_DIR }}" ] && missing="${missing} FTP_REMOTE_DIR"
+          if [ -n "$missing" ]; then
+            echo "❌ Fehlende Secrets:${missing}"
+            exit 1
+          fi
+
+      - name: Create .env.production
+        run: |
+          cat > .env.production << 'EOF'
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_PROXY_URL=${{ secrets.VITE_PROXY_URL }}
+          EOF
+
+      # Wichtig: npm install statt npm ci, damit neue Dev-Dependencies (Tailwind v4 + Plugin)
+      # auch ohne aktualisiertes Lockfile installiert werden.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build project
+        env:
+          NODE_ENV: production
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-
-          # Verbindungs-Settings
-          protocol: ftps              # explizites FTPS
+          protocol: ftps
           port: 21
-          security: controlOnly       # <<< FIX: TLS nur auf Control-Channel (verhindert data-socket-Resets)
-          passive: true               # (Standard, hier explizit)
-
-          # Laufzeit
-          timeout: 120000             # 120s, hilft bei trägen Servern
-          max-tries: 3
-          log-level: verbose
-
-          # Deploy-Ziel
-          local-dir: dist/            # Slash am Ende
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}  # z. B. "/ai-smartbiz/" (mit Slash am Ende!)
-
-          # sicher deployen
+          local-dir: dist/    # Slash am Ende korrekt
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           dangerous-clean-slate: false
           exclude: |
             **/.git*
@@ -29,4 +76,3 @@
             **/src/**
             **/package*.json
             **/vite.config.*
-          state-name: .ftp-deploy-sync-state.json   # inkrementelles Sync, weniger Datenkanal-Last
