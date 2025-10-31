@@ -17,7 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'npm'     # nutzt package-lock.json falls vorhanden (optional)
 
       - name: Check required secrets
         run: |
@@ -42,8 +42,10 @@ jobs:
           VITE_PROXY_URL=${{ secrets.VITE_PROXY_URL }}
           EOF
 
+      # Wichtig: npm install statt npm ci, damit neue Dev-Dependencies (Tailwind v4 + Plugin)
+      # auch ohne aktualisiertes Lockfile installiert werden.
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Build project
         env:
@@ -64,8 +66,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
-          local-dir: dist/               # ✅ Fix: Slash am Ende!
-          server-dir: ./
+          local-dir: dist/    # Slash am Ende korrekt
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           dangerous-clean-slate: false
           exclude: |
             **/.git*
