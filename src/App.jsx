@@ -22,7 +22,12 @@ const theme = {
 function Card({ title, subtitle, className = "", children, align = "center" }) {
   const alignCls = align === "left" ? "text-left" : "text-center";
   return (
-    <div className={`rounded-xl p-6 transition-all duration-300 ${theme.card} ${theme.cardHover} ${alignCls} ${className}`}>
+    <div
+      className={`rounded-2xl p-6 transition-all duration-300
+                  bg-[#171717] border border-[#3a3a3a]
+                  hover:border-[#4a4a4a] hover:shadow-[0_12px_32px_rgba(0,0,0,0.45)]
+                  ${alignCls} ${className}`}
+    >
       {(title || subtitle) && (
         <div className="mb-3">
           {title && (
@@ -37,6 +42,7 @@ function Card({ title, subtitle, className = "", children, align = "center" }) {
     </div>
   );
 }
+
 
 function Banner({ banner, onClose }) {
   if (!banner) return null;
@@ -386,38 +392,53 @@ export default function App() {
         <main className="space-y-10">
           {/* HOME */}
           {session && view === "home" && !tool && (
-            <FadeIn inKey="home">
-              <section className="max-w-3xl mx-auto">
-                <Card className="py-10">
-                  <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
-                </Card>
-              </section>
+  <FadeIn inKey="home">
+    {/* Begrüßung als echte Card, mittig */}
+    <section className="max-w-3xl mx-auto">
+      <Card className="py-10">
+        <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
+      </Card>
+    </section>
 
-              {/* Apps zentriert (Flex) */}
-              <section className="max-w-6xl mx-auto">
-                <div className="flex flex-wrap justify-center gap-8">
-                  <Card title="PriceFinder" subtitle="Wohlfühl-, Wachstums- & Authority-Preis" className="w-[22rem]">
-                    <p className="text-sm text-neutral-400">Klarer, sauberer Pricing-Flow.</p>
-                    <div className="mt-6">
-                      <Button onClick={() => setTool("pricefinder")} full>Öffnen</Button>
-                    </div>
-                  </Card>
-                  <Card title="MessageMatcher" subtitle="Messaging-Map aus Bio/Website" className="w-[22rem]">
-                    <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
-                    <div className="mt-6">
-                      <Button onClick={() => setTool("messagematcher")} full>Öffnen</Button>
-                    </div>
-                  </Card>
-                  <Card title="ContentFlow" subtitle="Hooks, Stories, Captions" className="w-[22rem]">
-                    <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
-                    <div className="mt-6">
-                      <Button onClick={() => setTool("contentflow")} full>Öffnen</Button>
-                    </div>
-                  </Card>
-                </div>
-              </section>
-            </FadeIn>
-          )}
+    {/* App-Karten – FLEX + feste Breite + mx-auto => immer mittig */}
+    <section className="max-w-7xl mx-auto">
+      <div className="flex flex-wrap justify-center gap-8">
+        <Card
+          title="PriceFinder"
+          subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
+          className="w-[22rem] mx-auto"
+        >
+          <p className="text-sm text-neutral-400">Klarer, sauberer Pricing-Flow.</p>
+          <div className="mt-6">
+            <Button onClick={() => setTool("pricefinder")} full>Öffnen</Button>
+          </div>
+        </Card>
+
+        <Card
+          title="MessageMatcher"
+          subtitle="Messaging-Map aus Bio/Website"
+          className="w-[22rem] mx-auto"
+        >
+          <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
+          <div className="mt-6">
+            <Button onClick={() => setTool("messagematcher")} full>Öffnen</Button>
+          </div>
+        </Card>
+
+        <Card
+          title="ContentFlow"
+          subtitle="Hooks, Stories, Captions"
+          className="w-[22rem] mx-auto"
+        >
+          <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
+          <div className="mt-6">
+            <Button onClick={() => setTool("contentflow")} full>Öffnen</Button>
+          </div>
+        </Card>
+      </div>
+    </section>
+  </FadeIn>
+)}
 
           {/* DASHBOARD TOOL LAYOUT */}
           {session && tool && (
