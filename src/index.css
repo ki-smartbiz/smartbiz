@@ -1,8 +1,33 @@
-/* src/index.css */
+/* src/index.css — Tailwind v4 */
+
+/* Tailwind v4: ein Import reicht */
 @import "tailwindcss";
 
-html, body, #root { height: 100%; margin: 0; }
+/* Basis: keine globalen Flex/Grid-Overrides, nix klebt links,
+   und es bleibt auch ohne Tailwind dunkel (Fallback). */
+:root { color-scheme: dark; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+#root { display: block; }        /* ganz wichtig: kein flex/grid am Root */
 * { box-sizing: border-box; }
 
-body { background: #0b0b0b; color: #f5f5f5; } /* Fallback */
-#root { display: block; } /* keine globalen Flex/Grid-Overrides */
+/* Fallback-Styles (falls CSS mal vor Tailwind lädt) */
+body {
+  background: #0b0b0b;
+  color: #f5f5f5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
+               Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji",
+               "Segoe UI Emoji";
+}
+
+/* Nützliche Defaults, ohne dein Layout zu beeinflussen */
+img, svg, video, canvas {
+  display: block;
+  max-width: 100%;
+}
