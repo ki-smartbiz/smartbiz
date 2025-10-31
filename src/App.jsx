@@ -384,7 +384,7 @@ export default function App() {
 
   return (
     <div className={`min-h-screen ${theme.bg} ${theme.text}`}>
-     <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+     <div className="app-shell">
         <TopBar />
         <Banner banner={banner} onClose={() => setBanner(null)} />
         <ToolHeader />
