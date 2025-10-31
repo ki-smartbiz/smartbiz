@@ -1,19 +1,20 @@
 // src/App.jsx — dark+gold, zentriert, Dashboard, feine Buttons (build-fähig)
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
-import Admin from "./pages/admin";
+
+// Wichtig: Groß-/Kleinschreibung exakt wie Dateinamen
+import Admin from "./pages/Admin";
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
-// Falls deine Datei ContenFlow.jsx heißt -> diesen Import anpassen:
 import ContentFlow from "./modules/ContentFlow";
 
 /* ========================= THEME ========================= */
 const theme = {
   bg: "bg-[#0b0b0b]",
   card: "bg-[#141414] border border-[#2a2a2a]",
-  cardHover: "hover:border-[#3a3a3a] hover:shadow-[0_10px_30px_rgba(0,0,0,0.35)]",
+  cardHover:
+    "hover:border-[#3a3a3a] hover:shadow-[0_10px_30px_rgba(0,0,0,0.35)]",
   text: "text-neutral-100",
-  muted: "text-neutral-400",
   gold: "#d1a45f",
   goldHover: "#c2924d",
 };
@@ -22,15 +23,22 @@ const theme = {
 function Card({ title, subtitle, className = "", children, align = "center" }) {
   const alignCls = align === "left" ? "text-left" : "text-center";
   return (
-    <div className={`rounded-xl p-6 transition-all duration-300 ${theme.card} ${theme.cardHover} ${alignCls} ${className}`}>
+    <div
+      className={`rounded-xl p-6 transition-all duration-300 ${theme.card} ${theme.cardHover} ${alignCls} ${className}`}
+    >
       {(title || subtitle) && (
         <div className="mb-3">
           {title && (
-            <div className="text-sm font-semibold tracking-wide" style={{ color: theme.gold }}>
+            <div
+              className="text-sm font-semibold tracking-wide"
+              style={{ color: theme.gold }}
+            >
               {title}
             </div>
           )}
-          {subtitle && <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>}
+          {subtitle && (
+            <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>
+          )}
         </div>
       )}
       {children}
@@ -50,7 +58,11 @@ function Banner({ banner, onClose }) {
     <div className={`mb-4 rounded-lg border px-4 py-2 text-sm ${color}`}>
       <div className="flex items-start justify-between gap-3">
         <div>{banner.msg}</div>
-        <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose}>
+        <button
+          className="text-xs opacity-70 hover:opacity-100"
+          onClick={onClose}
+          aria-label="Close"
+        >
           ✕
         </button>
       </div>
@@ -67,16 +79,17 @@ function Button({
   disabled = false,
   full = false,
 }) {
-  // Statische Klassen + CSS-Variablen → Tailwind-safe
   const styleVars = { "--gold": theme.gold, "--goldHover": theme.goldHover };
   const baseSolid = "hover:bg-[var(--goldHover)]";
   const baseOutline =
     "border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black";
   const base = variant === "solid" ? baseSolid : baseOutline;
   const inlineSolid =
-    variant === "solid" ? { backgroundColor: "var(--gold)", color: "#0b0b0b" } : {};
-
+    variant === "solid"
+      ? { backgroundColor: "var(--gold)", color: "#0b0b0b" }
+      : {};
   const widthCls = full ? "w-full" : "";
+
   return (
     <button
       type={type}
@@ -90,7 +103,6 @@ function Button({
   );
 }
 
-// Sanfte Einblendung
 function FadeIn({ children, inKey }) {
   const [show, setShow] = useState(false);
   useEffect(() => {
@@ -110,7 +122,14 @@ function FadeIn({ children, inKey }) {
 }
 
 /* ========================= INPUT ========================= */
-function TextInput({ label, type = "text", value, onChange, placeholder, autoComplete }) {
+function TextInput({
+  label,
+  type = "text",
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+}) {
   return (
     <div className="space-y-1">
       {label && <label className="text-sm text-neutral-300">{label}</label>}
@@ -134,21 +153,24 @@ function LoginView({ setBanner, setView }) {
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const origin =
+    typeof window !== "undefined" ? window.location.origin : undefined;
+
   const signInWithPassword = (emailRaw, password) => {
     const email = (emailRaw || "").trim().toLowerCase();
     return supabase.auth.signInWithPassword({ email, password });
-  };
+    };
   const signInWithMagicLink = (emailRaw) => {
     const email = (emailRaw || "").trim().toLowerCase();
     return supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: origin },
     });
   };
   const sendReset = (emailRaw) => {
     const email = (emailRaw || "").trim().toLowerCase();
     return supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/#recovery`,
+      redirectTo: `${origin || ""}/#recovery`,
     });
   };
 
@@ -264,8 +286,13 @@ function RecoveryView({ setBanner }) {
     try {
       const { error } = await supabase.auth.updateUser({ password: pw1 });
       if (error) throw error;
-      setBanner({ type: "success", msg: "Passwort gesetzt. Du bist eingeloggt." });
-      window.history.replaceState({}, "", window.location.pathname);
+      setBanner({
+        type: "success",
+        msg: "Passwort gesetzt. Du bist eingeloggt.",
+      });
+      if (typeof window !== "undefined") {
+        window.history.replaceState({}, "", window.location.pathname);
+      }
     } catch (e) {
       setErr(e?.message || "Passwort konnte nicht gesetzt werden.");
     } finally {
@@ -313,11 +340,17 @@ function AccountView({ me, setBanner }) {
     e.preventDefault();
     setSaving(true);
     try {
-      const { error } = await supabase.from("profiles").update({ first_name: first }).eq("id", me.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update({ first_name: first })
+        .eq("id", me.id);
       if (error) throw error;
       setBanner({ type: "success", msg: "Profil gespeichert." });
     } catch {
-      setBanner({ type: "error", msg: "Profil konnte nicht gespeichert werden." });
+      setBanner({
+        type: "error",
+        msg: "Profil konnte nicht gespeichert werden.",
+      });
     } finally {
       setSaving(false);
     }
@@ -348,7 +381,12 @@ function AccountView({ me, setBanner }) {
     <div className="grid md:grid-cols-2 gap-6">
       <Card title="Profil" subtitle="Dein öffentlicher Name" align="left">
         <form onSubmit={saveProfile} className="space-y-3">
-          <TextInput label="Vorname" value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Christina" />
+          <TextInput
+            label="Vorname"
+            value={first}
+            onChange={(e) => setFirst(e.target.value)}
+            placeholder="Christina"
+          />
           <Button type="submit" disabled={saving}>
             {saving ? "Speichere…" : "Speichern"}
           </Button>
@@ -391,7 +429,9 @@ export default function App() {
   const [banner, setBanner] = useState(null);
 
   useEffect(() => {
-    if (window.location.hash === "#recovery") setView("recovery");
+    if (typeof window !== "undefined" && window.location.hash === "#recovery") {
+      setView("recovery");
+    }
   }, []);
 
   useEffect(() => {
@@ -400,8 +440,10 @@ export default function App() {
       const { data } = await supabase.auth.getSession();
       if (mounted) setSession(data.session ?? null);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess ?? null));
-    return () => sub.subscription.unsubscribe();
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) =>
+      setSession(sess ?? null)
+    );
+    return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
   useEffect(() => {
@@ -412,8 +454,14 @@ export default function App() {
         return;
       }
       const uid = session.user.id;
-      const { data: existing } = await supabase.from("profiles").select("*").eq("id", uid).single();
-      if (mounted && existing) setMe(existing);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", uid)
+        .single();
+      if (mounted) {
+        setMe(error ? { email: session.user.email } : data ?? { email: session.user.email });
+      }
     })();
     return () => {
       mounted = false;
@@ -421,12 +469,12 @@ export default function App() {
   }, [session]);
 
   const greeting = useMemo(() => {
-    if (!me) return "";
-    const first = me.first_name?.trim();
+    const first = me?.first_name?.trim();
     if (first) return `Hey ${first}, let’s move some mountains today ⚡️`;
-    const nick = (me.email || "").split("@")[0];
-    return `Hey ${nick}, let’s move some mountains today ⚡️`;
-  }, [me]);
+    const emailSrc = me?.email || session?.user?.email || "";
+    const nick = emailSrc.split("@")[0];
+    return `Hey ${nick || "there"}, let’s move some mountains today ⚡️`;
+  }, [me, session]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -437,11 +485,19 @@ export default function App() {
 
   const ToolHeader = () => {
     if (!tool) return null;
-    const title = tool === "pricefinder" ? "PriceFinder" : tool === "messagematcher" ? "MessageMatcher" : "ContentFlow";
+    const title =
+      tool === "pricefinder"
+        ? "PriceFinder"
+        : tool === "messagematcher"
+        ? "MessageMatcher"
+        : "ContentFlow";
     return (
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button className="text-sm text-neutral-400 hover:text-neutral-200" onClick={() => setTool(null)}>
+          <button
+            className="text-sm text-neutral-400 hover:text-neutral-200"
+            onClick={() => setTool(null)}
+          >
             Home
           </button>
           <span className="text-neutral-600">/</span>
@@ -453,7 +509,10 @@ export default function App() {
           <Button variant="outline" onClick={() => setTool(null)}>
             ← Zurück
           </Button>
-          <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+          <Button
+            variant="outline"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          >
             Nach oben
           </Button>
         </div>
@@ -463,22 +522,51 @@ export default function App() {
 
   const TopBar = () => (
     <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
-      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left" style={{ color: theme.gold }}>
+      <h1
+        className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left"
+        style={{ color: theme.gold }}
+      >
         SmartBiz Suite
       </h1>
       <nav className="flex flex-wrap items-center justify-center gap-2">
         {session ? (
           <>
-            <Button variant="outline" onClick={() => { setTool(null); setView("home"); }}>Home</Button>
-            <Button variant="outline" onClick={() => { setTool(null); setView("account"); }}>Konto</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTool(null);
+                setView("home");
+              }}
+            >
+              Home
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTool(null);
+                setView("account");
+              }}
+            >
+              Konto
+            </Button>
             {me?.role === "admin" && (
-              <Button variant="outline" onClick={() => { setTool(null); setView("admin"); }}>Admin</Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setTool(null);
+                  setView("admin");
+                }}
+              >
+                Admin
+              </Button>
             )}
             <Button onClick={handleLogout}>Logout</Button>
           </>
         ) : (
           <>
-            <Button variant="outline" onClick={() => setView("login")}>Login</Button>
+            <Button variant="outline" onClick={() => setView("login")}>
+              Login
+            </Button>
             <Button onClick={() => setView("register")}>Registrieren</Button>
           </>
         )}
@@ -499,19 +587,23 @@ export default function App() {
             <FadeIn inKey="home">
               <section className="max-w-3xl mx-auto">
                 <Card className="py-10">
-                  <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
+                  <p className="text-lg md:text-xl font-medium text-neutral-300">
+                    {greeting}
+                  </p>
                 </Card>
               </section>
 
-              {/* Apps als zentriertes Grid mit gleich breiten Cards */}
+              {/* Apps als zentriertes Grid */}
               <section className="max-w-6xl mx-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 place-items-center justify-center">
                   <Card
                     title="PriceFinder"
                     subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
                     className="w-full max-w-sm"
                   >
-                    <p className="text-sm text-neutral-400">Klarer, sauberer Pricing-Flow.</p>
+                    <p className="text-sm text-neutral-400">
+                      Klarer, sauberer Pricing-Flow.
+                    </p>
                     <div className="mt-6">
                       <Button onClick={() => setTool("pricefinder")} full>
                         Öffnen
@@ -524,7 +616,9 @@ export default function App() {
                     subtitle="Messaging-Map aus Bio/Website"
                     className="w-full max-w-sm"
                   >
-                    <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
+                    <p className="text-sm text-neutral-400">
+                      Positionierung ohne Ratespiel.
+                    </p>
                     <div className="mt-6">
                       <Button onClick={() => setTool("messagematcher")} full>
                         Öffnen
@@ -532,8 +626,14 @@ export default function App() {
                     </div>
                   </Card>
 
-                  <Card title="ContentFlow" subtitle="Hooks, Stories, Captions" className="w-full max-w-sm">
-                    <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
+                  <Card
+                    title="ContentFlow"
+                    subtitle="Hooks, Stories, Captions"
+                    className="w-full max-w-sm"
+                  >
+                    <p className="text-sm text-neutral-400">
+                      Struktur rein, Output rauf.
+                    </p>
                     <div className="mt-6">
                       <Button onClick={() => setTool("contentflow")} full>
                         Öffnen
@@ -581,7 +681,12 @@ export default function App() {
                   </Card>
                   <Card title="Quick Actions" align="left">
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          window.scrollTo({ top: 0, behavior: "smooth" })
+                        }
+                      >
                         Scroll Top
                       </Button>
                       <Button variant="outline" onClick={() => setTool(null)}>
@@ -677,17 +782,18 @@ function RegisterView({ setBanner, setView }) {
       if (error) throw error;
       const uid = data?.user?.id;
       if (uid) {
-        const { error: pe } = await supabase
-          .from("profiles")
-          .upsert({
-            id: uid,
-            email: email.trim().toLowerCase(),
-            role: "user",
-            first_name: first || null,
-          });
+        const { error: pe } = await supabase.from("profiles").upsert({
+          id: uid,
+          email: email.trim().toLowerCase(),
+          role: "user",
+          first_name: first || null,
+        });
         if (pe) throw pe;
       }
-      setBanner({ type: "success", msg: "Registrierung erfolgreich. Bitte einloggen." });
+      setBanner({
+        type: "success",
+        msg: "Registrierung erfolgreich. Bitte einloggen.",
+      });
       setView("login");
     } catch (e) {
       setErr(e?.message || "Registrierung fehlgeschlagen.");
