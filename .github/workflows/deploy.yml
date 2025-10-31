@@ -10,15 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # --- CODE CHECKOUT ---
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      # --- NODE SETUP ---
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'     # nutzt package-lock.json falls vorhanden (optional)
+          node-version: 20
+          cache: 'npm'
 
+      # --- SECRET CHECK ---
       - name: Check required secrets
         run: |
           missing=""
@@ -34,6 +37,7 @@ jobs:
             exit 1
           fi
 
+      # --- ENV FILE ---
       - name: Create .env.production
         run: |
           cat > .env.production << 'EOF'
@@ -42,46 +46,38 @@ jobs:
           VITE_PROXY_URL=${{ secrets.VITE_PROXY_URL }}
           EOF
 
-      # Wichtig: npm install statt npm ci, damit neue Dev-Dependencies (Tailwind v4 + Plugin)
-      # auch ohne aktualisiertes Lockfile installiert werden.
+      # --- INSTALL ---
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install
 
+      # --- BUILD ---
       - name: Build project
         env:
           NODE_ENV: production
         run: npm run build
 
+      # --- ARTEFAKT UPLOAD (optional für Debugging) ---
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
-      - name: Deploy via FTP
+      # --- DEPLOY ---
+      - name: Deploy via FTP (FTPS explicit)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-
-          # Verbindungs-Settings
-          protocol: ftps              # explizites FTPS
+          protocol: ftps
           port: 21
-          security: controlOnly       # <<< FIX: TLS nur auf Control-Channel (verhindert data-socket-Resets)
-          passive: true               # (Standard, hier explizit)
-
-          # Laufzeit
-          timeout: 120000             # 120s, hilft bei trägen Servern
-          max-tries: 3
-          log-level: verbose
-
-          # Deploy-Ziel
-          local-dir: dist/            # Slash am Ende
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}  # z. B. "/ai-smartbiz/" (mit Slash am Ende!)
-
-          # sicher deployen
+          security: loose
+          local-dir: dist/
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           dangerous-clean-slate: false
+          log-level: verbose
+          state-name: .ftp-deploy-sync-state.json
           exclude: |
             **/.git*
             **/.github/**
@@ -89,4 +85,3 @@ jobs:
             **/src/**
             **/package*.json
             **/vite.config.*
-          state-name: .ftp-deploy-sync-state.json   # inkrementelles Sync, weniger Datenkanal-Last
