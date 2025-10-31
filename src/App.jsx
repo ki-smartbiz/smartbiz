@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
-// WICHTIG: admin.jsx ist klein geschrieben
+// admin.jsx ist klein geschrieben
 import Admin from "./pages/admin";
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
@@ -50,9 +50,7 @@ function Banner({ banner, onClose }) {
     <div className={`mb-4 rounded-lg border px-4 py-2 text-sm ${color}`}>
       <div className="flex items-start justify-between gap-3">
         <div>{banner.msg}</div>
-        <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose} aria-label="Close">
-          ✕
-        </button>
+        <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose} aria-label="Close">✕</button>
       </div>
     </div>
   );
@@ -86,9 +84,7 @@ function FadeIn({ children, inKey }) {
     return () => clearTimeout(t);
   }, [inKey]);
   return (
-    <div className={`transform transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
-      {children}
-    </div>
+    <div className={`transform transition-all duration-300 ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>{children}</div>
   );
 }
 
@@ -116,7 +112,6 @@ function LoginView({ setBanner, setView }) {
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
-
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
   const signInWithPassword = (emailRaw, password) => {
@@ -125,22 +120,16 @@ function LoginView({ setBanner, setView }) {
   };
   const signInWithMagicLink = (emailRaw) => {
     const email = (emailRaw || "").trim().toLowerCase();
-    return supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: origin },
-    });
+    return supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: origin } });
   };
   const sendReset = (emailRaw) => {
     const email = (emailRaw || "").trim().toLowerCase();
-    return supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${origin}/#recovery`,
-    });
+    return supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/#recovery` });
   };
 
   const onLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setErr("");
+    setLoading(true); setErr("");
     try {
       const { error } = await signInWithPassword(email, pw);
       if (error) throw error;
@@ -153,8 +142,7 @@ function LoginView({ setBanner, setView }) {
   };
   const onMagic = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setErr("");
+    setLoading(true); setErr("");
     try {
       const { error } = await signInWithMagicLink(email);
       if (error) throw error;
@@ -167,8 +155,7 @@ function LoginView({ setBanner, setView }) {
   };
   const onForgot = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setErr("");
+    setLoading(true); setErr("");
     try {
       const { error } = await sendReset(email);
       if (error) throw error;
@@ -303,7 +290,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [me, setMe] = useState(null);
   const [view, setView] = useState("home"); // home | login | register | recovery | account | admin
-  const [tool, setTool] = useState(null); // null | "pricefinder" | "messagematcher" | "contentflow"
+  const [tool, setTool] = useState(null);   // null | "pricefinder" | "messagematcher" | "contentflow"
   const [banner, setBanner] = useState(null);
 
   useEffect(() => {
@@ -323,10 +310,7 @@ export default function App() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      if (!session?.user?.id) {
-        setMe(null);
-        return;
-      }
+      if (!session?.user?.id) { setMe(null); return; }
       const uid = session.user.id;
       const { data, error } = await supabase.from("profiles").select("*").eq("id", uid).single();
       if (mounted) setMe(error ? { email: session.user.email } : data ?? { email: session.user.email });
@@ -409,7 +393,7 @@ export default function App() {
                 </Card>
               </section>
 
-              {/* APPS: FLEX statt GRID → IMMER ZENTRIERT */}
+              {/* Apps zentriert (Flex) */}
               <section className="max-w-6xl mx-auto">
                 <div className="flex flex-wrap justify-center gap-8">
                   <Card title="PriceFinder" subtitle="Wohlfühl-, Wachstums- & Authority-Preis" className="w-[22rem]">
@@ -418,14 +402,12 @@ export default function App() {
                       <Button onClick={() => setTool("pricefinder")} full>Öffnen</Button>
                     </div>
                   </Card>
-
                   <Card title="MessageMatcher" subtitle="Messaging-Map aus Bio/Website" className="w-[22rem]">
                     <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
                     <div className="mt-6">
                       <Button onClick={() => setTool("messagematcher")} full>Öffnen</Button>
                     </div>
                   </Card>
-
                   <Card title="ContentFlow" subtitle="Hooks, Stories, Captions" className="w-[22rem]">
                     <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
                     <div className="mt-6">
@@ -445,15 +427,9 @@ export default function App() {
                 <aside className="lg:col-span-4 space-y-3">
                   <Card title="Navigation" align="left">
                     <div className="grid gap-2">
-                      <Button variant="outline" className={tool === "pricefinder" ? "opacity-100" : "opacity-70"} onClick={() => setTool("pricefinder")} full>
-                        PriceFinder
-                      </Button>
-                      <Button variant="outline" className={tool === "messagematcher" ? "opacity-100" : "opacity-70"} onClick={() => setTool("messagematcher")} full>
-                        MessageMatcher
-                      </Button>
-                      <Button variant="outline" className={tool === "contentflow" ? "opacity-100" : "opacity-70"} onClick={() => setTool("contentflow")} full>
-                        ContentFlow
-                      </Button>
+                      <Button variant="outline" className={tool === "pricefinder" ? "opacity-100" : "opacity-70"} onClick={() => setTool("pricefinder")} full>PriceFinder</Button>
+                      <Button variant="outline" className={tool === "messagematcher" ? "opacity-100" : "opacity-70"} onClick={() => setTool("messagematcher")} full>MessageMatcher</Button>
+                      <Button variant="outline" className={tool === "contentflow" ? "opacity-100" : "opacity-70"} onClick={() => setTool("contentflow")} full>ContentFlow</Button>
                     </div>
                   </Card>
                   <Card title="Quick Actions" align="left">
@@ -545,4 +521,37 @@ function RegisterView({ setBanner, setView }) {
     try {
       const { data, error } = await signUp(email, pw);
       if (error) throw error;
-      const
+      const uid = data?.user?.id;
+      if (uid) {
+        const { error: pe } = await supabase.from("profiles").upsert({
+          id: uid,
+          email: email.trim().toLowerCase(),
+          role: "user",
+          first_name: first || null,
+        });
+        if (pe) throw pe;
+      }
+      setBanner({ type: "success", msg: "Registrierung erfolgreich. Bitte einloggen." });
+      setView("login");
+    } catch (e) {
+      setErr(e?.message || "Registrierung fehlgeschlagen.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card title="Registrieren" subtitle="Starte los">
+      <form className="space-y-3" onSubmit={onRegister}>
+        <TextInput label="Vorname" value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Dein Name" />
+        <TextInput label="E-Mail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@domain.com" autoComplete="username" />
+        <TextInput label="Passwort" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+        {err && <div className="text-sm text-rose-400">{err}</div>}
+        <div className="flex gap-3">
+          <Button type="submit" disabled={loading}>{loading ? "Registriere…" : "Registrieren"}</Button>
+          <Button variant="outline" onClick={() => setView("login")}>Zurück zum Login</Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
