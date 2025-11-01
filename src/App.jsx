@@ -1,6 +1,9 @@
+// src/App.jsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
-import Admin from "./pages/admin";
+
+// Seiten/Module
+import Admin from "./pages/admin"; // Datei heißt admin.jsx (klein)
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
 import ContentFlow from "./modules/ContentFlow";
@@ -14,15 +17,23 @@ const theme = {
 };
 
 /* ========================= UI PRIMITIVES ========================= */
-const Card = ({ title, subtitle, children, align = "center" }) => (
+const Card = ({ title, subtitle, children, align = "center", className = "" }) => (
   <div
-    className={`rounded-2xl p-6 bg-[#171717] border border-[#2a2a2a] 
-      hover:border-[#3a3a3a] hover:shadow-[0_12px_32px_rgba(0,0,0,0.45)]
-      transition-all duration-300 ${align === "left" ? "text-left" : "text-center"}`}
+    className={[
+      "rounded-2xl p-6 bg-[#171717] border border-[#2a2a2a]",
+      "hover:border-[#3a3a3a] hover:shadow-[0_12px_32px_rgba(0,0,0,0.45)]",
+      "transition-all duration-300",
+      align === "left" ? "text-left" : "text-center",
+      className,
+    ].join(" ")}
   >
     {(title || subtitle) && (
       <div className="mb-3">
-        {title && <div className="text-sm font-semibold" style={{ color: theme.gold }}>{title}</div>}
+        {title && (
+          <div className="text-sm font-semibold" style={{ color: theme.gold }}>
+            {title}
+          </div>
+        )}
         {subtitle && <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>}
       </div>
     )}
@@ -30,35 +41,250 @@ const Card = ({ title, subtitle, children, align = "center" }) => (
   </div>
 );
 
-const Button = ({ children, onClick, variant = "solid", full = false, disabled = false }) => {
+const Button = ({
+  children,
+  onClick,
+  variant = "solid",
+  full = false,
+  disabled = false,
+  type = "button",
+  className = "",
+  title,
+}) => {
   const styleVars = { "--gold": theme.gold, "--goldHover": theme.goldHover };
   const base =
     variant === "solid"
       ? "bg-[var(--gold)] hover:bg-[var(--goldHover)] text-black"
       : "border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black";
-
   return (
     <button
+      type={type}
       onClick={onClick}
       disabled={disabled}
       style={styleVars}
-      className={`rounded-2xl px-4 py-2 text-sm font-semibold transition-all duration-150
-        hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 shadow-[0_3px_0_rgba(0,0,0,0.25)]
-        ${base} ${full ? "w-full" : ""}`}
+      title={title}
+      className={[
+        "rounded-2xl px-4 py-2 text-sm font-semibold transition-all duration-150",
+        "hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50",
+        "shadow-[0_3px_0_rgba(0,0,0,0.25)]",
+        base,
+        full ? "w-full" : "",
+        className,
+      ].join(" ")}
     >
       {children}
     </button>
   );
 };
 
+const TextInput = ({ label, type = "text", value, onChange, placeholder, autoComplete }) => (
+  <div className="space-y-1">
+    {label && <label className="text-sm text-neutral-300">{label}</label>}
+    <input
+      type={type}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      autoComplete={autoComplete}
+      className="w-full rounded-md bg-[#0f0f0f] border border-[#2a2a2a] px-3 py-2 text-neutral-200 placeholder-neutral-500 focus:outline-none focus:border-[var(--gold)]"
+      style={{ "--gold": theme.gold }}
+    />
+  </div>
+);
+
+const Banner = ({ banner, onClose }) => {
+  if (!banner) return null;
+  const color =
+    banner.type === "success"
+      ? "bg-emerald-900/40 border-emerald-700 text-emerald-200"
+      : banner.type === "error"
+      ? "bg-rose-900/40 border-rose-700 text-rose-200"
+      : "bg-[#141414] border border-[#2a2a2a] text-neutral-100";
+  return (
+    <div className={`mb-4 rounded-lg px-4 py-2 text-sm ${color}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>{banner.msg}</div>
+        <button className="text-xs opacity-70 hover:opacity-100" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* ========================= AUTH VIEWS ========================= */
+function LoginView({ setBanner, setView }) {
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  const signInWithPassword = (emailRaw, password) => {
+    const e = (emailRaw || "").trim().toLowerCase();
+    return supabase.auth.signInWithPassword({ email: e, password });
+  };
+  const signInWithMagicLink = (emailRaw) => {
+    const e = (emailRaw || "").trim().toLowerCase();
+    return supabase.auth.signInWithOtp({ email: e, options: { emailRedirectTo: origin } });
+  };
+  const sendReset = (emailRaw) => {
+    const e = (emailRaw || "").trim().toLowerCase();
+    return supabase.auth.resetPasswordForEmail(e, { redirectTo: `${origin}/#recovery` });
+  };
+
+  const onLogin = async (ev) => {
+    ev.preventDefault();
+    setLoading(true);
+    setErr("");
+    try {
+      const { error } = await signInWithPassword(email, pw);
+      if (error) throw error;
+      setBanner({ type: "success", msg: "Eingeloggt. Willkommen zurück!" });
+    } catch (e) {
+      setErr(e?.message || "Invalid login credentials.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const onMagic = async (ev) => {
+    ev.preventDefault();
+    setLoading(true);
+    setErr("");
+    try {
+      const { error } = await signInWithMagicLink(email);
+      if (error) throw error;
+      setBanner({ type: "success", msg: "Magic Link gesendet. Prüfe dein Postfach." });
+    } catch (e) {
+      setErr(e?.message || "Magic Link konnte nicht gesendet werden.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const onForgot = async (ev) => {
+    ev.preventDefault();
+    setLoading(true);
+    setErr("");
+    try {
+      const { error } = await sendReset(email);
+      if (error) throw error;
+      setBanner({ type: "success", msg: "Reset-Link verschickt. Prüfe dein Postfach." });
+    } catch (e) {
+      setErr(e?.message || "Reset-E-Mail konnte nicht gesendet werden.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card title="Login" subtitle="Willkommen zurück">
+      <form className="space-y-3" onSubmit={onLogin}>
+        <TextInput label="E-Mail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@domain.com" autoComplete="username" />
+        <TextInput label="Passwort" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoComplete="current-password" />
+        {err && <div className="text-sm text-rose-400">{err}</div>}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="submit" disabled={loading}>{loading ? "Einloggen…" : "Einloggen"}</Button>
+          <Button variant="outline" onClick={onMagic} disabled={loading}>Magic Link</Button>
+          <button className="text-sm underline decoration-neutral-600 hover:decoration-neutral-300" onClick={onForgot} disabled={loading}>
+            Passwort vergessen?
+          </button>
+          <span className="opacity-40">|</span>
+          <button className="text-sm underline decoration-neutral-600 hover:decoration-neutral-300" onClick={() => setView("register")}>
+            Jetzt registrieren
+          </button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function RecoveryView({ setBanner }) {
+  const [pw1, setPw1] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setErr("");
+    if (!pw1 || pw1 !== pw2) {
+      setErr("Passwörter stimmen nicht überein.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw1 });
+      if (error) throw error;
+      setBanner({ type: "success", msg: "Passwort gesetzt. Du bist eingeloggt." });
+      if (typeof window !== "undefined") window.history.replaceState({}, "", window.location.pathname);
+    } catch (e2) {
+      setErr(e2?.message || "Passwort konnte nicht gesetzt werden.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card title="Neues Passwort setzen">
+      <form className="space-y-3" onSubmit={onSubmit}>
+        <TextInput label="Neues Passwort" type="password" value={pw1} onChange={(e) => setPw1(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+        <TextInput label="Wiederholen" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+        {err && <div className="text-sm text-rose-400">{err}</div>}
+        <Button type="submit" disabled={loading}>{loading ? "Speichere…" : "Passwort speichern"}</Button>
+      </form>
+    </Card>
+  );
+}
+
+function AccountView({ me, setBanner }) {
+  const [first, setFirst] = useState(me?.first_name || "");
+  const [saving, setSaving] = useState(false);
+
+  const saveProfile = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("profiles").update({ first_name: first }).eq("id", me.id);
+      if (error) throw error;
+      setBanner({ type: "success", msg: "Profil gespeichert." });
+    } catch {
+      setBanner({ type: "error", msg: "Profil konnte nicht gespeichert werden." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <Card title="Profil" subtitle="Dein öffentlicher Name" align="left">
+        <form onSubmit={saveProfile} className="space-y-3">
+          <TextInput label="Vorname" value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Christina" />
+          <Button type="submit" disabled={saving}>{saving ? "Speichere…" : "Speichern"}</Button>
+        </form>
+      </Card>
+      <Card title="Info" align="left">
+        <div className="text-sm text-neutral-400">
+          {me?.email ? <>E-Mail: <span className="text-neutral-200">{me.email}</span></> : "Kein Profil geladen."}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 /* ========================= APP ========================= */
 export default function App() {
   const [session, setSession] = useState(null);
   const [me, setMe] = useState(null);
-  const [view, setView] = useState("home");
-  const [tool, setTool] = useState(null);
+  const [view, setView] = useState("home"); // home | login | register | recovery | account | admin
+  const [tool, setTool] = useState(null);   // null | "pricefinder" | "messagematcher" | "contentflow"
+  const [banner, setBanner] = useState(null);
 
-  /* ----- AUTH ----- */
+  // Hash-Recovery
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#recovery") setView("recovery");
+  }, []);
+
+  // Session-Handling
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
@@ -68,91 +294,133 @@ export default function App() {
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
+  // Profil laden
   useEffect(() => {
     if (!session?.user?.id) return setMe(null);
-    const loadProfile = async () => {
-      const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-      setMe(data ?? { email: session.user.email });
+    const load = async () => {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
+      setMe(error ? { email: session.user.email } : data ?? { email: session.user.email });
     };
-    loadProfile();
+    load();
   }, [session]);
 
   const greeting = useMemo(() => {
     const first = me?.first_name?.trim();
-    const name = first || me?.email?.split("@")[0] || "there";
-    return `Hey ${name}, let’s move some mountains today ⚡️`;
-  }, [me]);
+    const emailSrc = me?.email || session?.user?.email || "";
+    const nick = first || emailSrc.split("@")[0] || "there";
+    return `Hey ${nick}, let’s move some mountains today ⚡️`;
+  }, [me, session]);
 
   const logout = async () => {
     await supabase.auth.signOut();
-    setSession(null);
+    setBanner({ type: "neutral", msg: "Abgemeldet." });
     setTool(null);
     setView("login");
   };
 
+  const TopBar = () => (
+    <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between text-center md:text-left">
+      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight" style={{ color: theme.gold }}>
+        SmartBiz Suite
+      </h1>
+      <nav className="flex flex-wrap items-center justify-center gap-2">
+        {session ? (
+          <>
+            <Button variant="outline" onClick={() => { setTool(null); setView("home"); }}>Home</Button>
+            <Button variant="outline" onClick={() => { setTool(null); setView("account"); }}>Konto</Button>
+            {me?.role === "admin" && (
+              <Button variant="outline" onClick={() => { setTool(null); setView("admin"); }}>Admin</Button>
+            )}
+            <Button onClick={logout}>Logout</Button>
+          </>
+        ) : (
+          <>
+            <Button variant="outline" onClick={() => setView("login")}>Login</Button>
+            <Button onClick={() => setView("register")}>Registrieren</Button>
+          </>
+        )}
+      </nav>
+    </header>
+  );
+
+  const ToolHeader = () => {
+    if (!tool) return null;
+    const title =
+      tool === "pricefinder" ? "PriceFinder" :
+      tool === "messagematcher" ? "MessageMatcher" : "ContentFlow";
+    return (
+      <div className="mb-5 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button className="text-sm text-neutral-400 hover:text-neutral-200" onClick={() => setTool(null)}>Home</button>
+          <span className="text-neutral-600">/</span>
+          <span className="text-sm" style={{ color: theme.gold }}>{title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setTool(null)}>← Zurück</Button>
+          <Button variant="outline" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Nach oben</Button>
+        </div>
+      </div>
+    );
+  };
+
   /* ========================= LAYOUT ========================= */
   return (
+    // HARTE Zentrierung über Root-Flex + mittige App-Shell
     <div className={`min-h-screen flex justify-center items-start ${theme.bg} ${theme.text}`}>
-      <div className="app-shell w-full max-w-7xl py-10">
-        {/* HEADER */}
-        <header className="mb-10 text-center">
-          <h1 className="text-5xl font-extrabold tracking-tight mb-6" style={{ color: theme.gold }}>
-            SmartBiz Suite
-          </h1>
-          <nav className="flex flex-wrap justify-center gap-2">
-            {session ? (
-              <>
-                <Button variant="outline" onClick={() => { setTool(null); setView("home"); }}>Home</Button>
-                <Button variant="outline" onClick={() => setView("account")}>Konto</Button>
-                {me?.role === "admin" && (
-                  <Button variant="outline" onClick={() => setView("admin")}>Admin</Button>
-                )}
-                <Button onClick={logout}>Logout</Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => setView("login")}>Login</Button>
-                <Button onClick={() => setView("register")}>Registrieren</Button>
-              </>
-            )}
-          </nav>
-        </header>
+      <div className="app-shell w-full">
+        <TopBar />
+        <Banner banner={banner} onClose={() => setBanner(null)} />
+        <ToolHeader />
 
-        {/* MAIN */}
-        <main className="space-y-10 text-center">
+        <main className="space-y-10">
           {/* HOME */}
           {session && view === "home" && !tool && (
             <>
-              <Card>
-                <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
-              </Card>
-              <div className="flex flex-wrap justify-center gap-8">
-                <Card title="PriceFinder" subtitle="Wohlfühl-, Wachstums- & Authority-Preis" className="w-[22rem]">
-                  <p className="text-sm text-neutral-400 mb-6">Klarer, sauberer Pricing-Flow.</p>
-                  <Button onClick={() => setTool("pricefinder")} full>Öffnen</Button>
+              <section className="max-w-3xl mx-auto text-center">
+                <Card className="py-10">
+                  <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
                 </Card>
-                <Card title="MessageMatcher" subtitle="Messaging-Map aus Bio/Website" className="w-[22rem]">
-                  <p className="text-sm text-neutral-400 mb-6">Positionierung ohne Ratespiel.</p>
-                  <Button onClick={() => setTool("messagematcher")} full>Öffnen</Button>
-                </Card>
-                <Card title="ContentFlow" subtitle="Hooks, Stories, Captions" className="w-[22rem]">
-                  <p className="text-sm text-neutral-400 mb-6">Struktur rein, Output rauf.</p>
-                  <Button onClick={() => setTool("contentflow")} full>Öffnen</Button>
-                </Card>
-              </div>
+              </section>
+
+              <section className="max-w-7xl mx-auto">
+                <div className="flex flex-wrap justify-center gap-8">
+                  <Card title="PriceFinder" subtitle="Wohlfühl-, Wachstums- & Authority-Preis" className="w-[22rem]">
+                    <p className="text-sm text-neutral-400 mb-6">Klarer, sauberer Pricing-Flow.</p>
+                    <Button onClick={() => setTool("pricefinder")} full>Öffnen</Button>
+                  </Card>
+
+                  <Card title="MessageMatcher" subtitle="Messaging-Map aus Bio/Website" className="w-[22rem]">
+                    <p className="text-sm text-neutral-400 mb-6">Positionierung ohne Ratespiel.</p>
+                    <Button onClick={() => setTool("messagematcher")} full>Öffnen</Button>
+                  </Card>
+
+                  <Card title="ContentFlow" subtitle="Hooks, Stories, Captions" className="w-[22rem]">
+                    <p className="text-sm text-neutral-400 mb-6">Struktur rein, Output rauf.</p>
+                    <Button onClick={() => setTool("contentflow")} full>Öffnen</Button>
+                  </Card>
+                </div>
+              </section>
             </>
           )}
 
-          {/* TOOLS */}
+          {/* TOOL-DASHBOARD */}
           {session && tool && (
-            <div className="grid lg:grid-cols-12 gap-6 text-left">
+            <div className="max-w-7xl mx-auto grid lg:grid-cols-12 gap-6">
               <aside className="lg:col-span-4 space-y-3">
                 <Card title="Navigation" align="left">
                   <div className="grid gap-2">
-                    <Button variant="outline" onClick={() => setTool("pricefinder")} full>PriceFinder</Button>
-                    <Button variant="outline" onClick={() => setTool("messagematcher")} full>MessageMatcher</Button>
-                    <Button variant="outline" onClick={() => setTool("contentflow")} full>ContentFlow</Button>
-                    <Button variant="outline" onClick={() => setTool(null)} full>Zur Übersicht</Button>
+                    <Button variant="outline" className={tool === "pricefinder" ? "opacity-100" : "opacity-70"} onClick={() => setTool("pricefinder")} full>
+                      PriceFinder
+                    </Button>
+                    <Button variant="outline" className={tool === "messagematcher" ? "opacity-100" : "opacity-70"} onClick={() => setTool("messagematcher")} full>
+                      MessageMatcher
+                    </Button>
+                    <Button variant="outline" className={tool === "contentflow" ? "opacity-100" : "opacity-70"} onClick={() => setTool("contentflow")} full>
+                      ContentFlow
+                    </Button>
+                    <Button variant="outline" onClick={() => setTool(null)} full>
+                      Zur Übersicht
+                    </Button>
                   </div>
                 </Card>
               </aside>
@@ -165,14 +433,82 @@ export default function App() {
             </div>
           )}
 
-          {/* ADMIN */}
+          {/* AUTH / ACCOUNT / ADMIN */}
+          {!session && view === "login" && <LoginView setBanner={setBanner} setView={setView} />}
+          {view === "recovery" && <RecoveryView setBanner={setBanner} />}
+          {!session && view === "register" && <RegisterView setBanner={setBanner} setView={setView} />}
+          {session && view === "account" && !tool && <AccountView me={me} setBanner={setBanner} />}
           {session && view === "admin" && !tool && (
             <Card title="Admin Panel" align="left">
               <Admin onBack={() => setView("home")} />
             </Card>
           )}
+
+          {!session && !["login", "register", "recovery"].includes(view) && (
+            <div className="text-sm opacity-70 text-center">
+              Du bist nicht eingeloggt. Bitte{" "}
+              <button className="underline" onClick={() => setView("login")}>einloggen</button>.
+            </div>
+          )}
         </main>
       </div>
     </div>
+  );
+}
+
+/* ========================= REGISTER VIEW ========================= */
+function RegisterView({ setBanner, setView }) {
+  const [first, setFirst] = useState("");
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const signUp = (emailRaw, password) => {
+    const e = (emailRaw || "").trim().toLowerCase();
+    return supabase.auth.signUp({ email: e, password });
+  };
+
+  const onRegister = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErr("");
+    try {
+      const { data, error } = await signUp(email, pw);
+      if (error) throw error;
+      const uid = data?.user?.id;
+      if (uid) {
+        const { error: pe } = await supabase
+          .from("profiles")
+          .upsert({
+            id: uid,
+            email: email.trim().toLowerCase(),
+            role: "user",
+            first_name: first || null,
+          });
+        if (pe) throw pe;
+      }
+      setBanner({ type: "success", msg: "Registrierung erfolgreich. Bitte einloggen." });
+      setView("login");
+    } catch (e2) {
+      setErr(e2?.message || "Registrierung fehlgeschlagen.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card title="Registrieren" subtitle="Starte los">
+      <form className="space-y-3" onSubmit={onRegister}>
+        <TextInput label="Vorname" value={first} onChange={(e) => setFirst(e.target.value)} placeholder="Dein Name" />
+        <TextInput label="E-Mail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@domain.com" autoComplete="username" />
+        <TextInput label="Passwort" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoComplete="new-password" />
+        {err && <div className="text-sm text-rose-400">{err}</div>}
+        <div className="flex gap-3">
+          <Button type="submit" disabled={loading}>{loading ? "Registriere…" : "Registrieren"}</Button>
+          <Button variant="outline" onClick={() => setView("login")}>Zurück zum Login</Button>
+        </div>
+      </form>
+    </Card>
   );
 }
