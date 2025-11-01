@@ -114,11 +114,28 @@ html, body, #root { height: 100%; }
 }
 
 
-/* ----------------------------------------
-   6) Utility: Debug (optional)
-   ---------------------------------------- */
-/*
-.app-shell {
-  outline: 1px dashed #444;
+/* --- HARD CENTER OVERRIDE (Nuke) --- */
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+#root {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  background: #0b0b0b; color: #f5f5f5;
 }
-*/
+
+/* Das erste React-Child (dein App-Wrapper) mittig + max Breite */
+#root > div {
+  width: 100% !important;
+  max-width: 80rem !important;  /* ≈ max-w-7xl */
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-left: 1rem; padding-right: 1rem;
+  padding-top: 2rem; padding-bottom: 2rem;
+}
+
+/* Falls irgendwo noch .container/.mx-auto steckt, ebenfalls mittig */
+.container, .mx-auto, .cards-center, .section-center {
+  margin-left: auto !important;
+  margin-right: auto !important;
+  max-width: 80rem !important;
+}
