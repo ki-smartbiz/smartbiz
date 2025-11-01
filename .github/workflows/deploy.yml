@@ -75,7 +75,7 @@ jobs:
           security: loose
           local-dir: dist/
           server-dir: ${{ secrets.FTP_REMOTE_DIR }}
-          dangerous-clean-slate: false
+          dangerous-clean-slate: true
           log-level: verbose
           state-name: .ftp-deploy-sync-state.json
           exclude: |
