@@ -1,4 +1,4 @@
-/* src/index.css — kompatibel mit Tailwind v4 */
+/* src/index.css — final, tested, Tailwind v4 */
 
 /* ----------------------------------------
    1) Tailwind importieren
@@ -9,13 +9,13 @@
    2) App-Shell (zentriert & responsiv)
    ---------------------------------------- */
 .app-shell {
-  max-width: 80rem;           /* entspricht max-w-7xl */
+  max-width: 80rem;           /* ≈ max-w-7xl */
   margin-left: auto;
   margin-right: auto;
   padding-left: 1rem;         /* px-4 */
   padding-right: 1rem;
-  padding-top: 1.5rem;        /* py-6 */
-  padding-bottom: 1.5rem;
+  padding-top: 2rem;          /* etwas mehr top padding für optisches Gleichgewicht */
+  padding-bottom: 2rem;
 }
 
 @media (min-width: 640px) {
@@ -48,7 +48,9 @@ body,
 }
 
 #root {
-  display: block;             /* kein flex/grid */
+  display: flex;              /* sorgt für echtes Zentrieren im Viewport */
+  justify-content: center;
+  align-items: flex-start;    /* oben starten, nicht komplett mittig */
 }
 
 * {
@@ -81,7 +83,7 @@ canvas {
 }
 
 /* ----------------------------------------
-   6) Utility: Debug-Rahmen (bei Bedarf aktivieren)
+   6) Utility: Debug (optional)
    ---------------------------------------- */
 /*
 .app-shell {
