@@ -396,66 +396,84 @@ export default function App() {
         )}
       </nav>
     </header>
-  );
+  );return (
+  <div className={`min-h-screen flex justify-center ${theme.bg} ${theme.text}`}>
+    {/* app-shell zentriert alles innerhalb der Seite */}
+    <div className="app-shell w-full">
+      <TopBar />
+      <Banner banner={banner} onClose={() => setBanner(null)} />
+      <ToolHeader />
 
-  return (
-    <div className={`min-h-screen ${theme.bg} ${theme.text}`}>
-      {/* HARTE Zentrierung über .app-shell (siehe index.css) */}
-      <div className="app-shell">
-        <TopBar />
-        <Banner banner={banner} onClose={() => setBanner(null)} />
-        <ToolHeader />
+      <main className="space-y-10 text-center">
+        {/* HOME */}
+        {session && view === "home" && !tool && (
+          <FadeIn inKey="home">
+            {/* Begrüßung */}
+            <section className="max-w-3xl mx-auto">
+              <Card className="py-10">
+                <p className="text-lg md:text-xl font-medium text-neutral-300">
+                  {greeting}
+                </p>
+              </Card>
+            </section>
 
-        <main className="space-y-10">
-          {/* HOME */}
-          {session && view === "home" && !tool && (
-            <FadeIn inKey="home">
-              {/* Begrüßung */}
-              <section className="max-w-3xl mx-auto">
-                <Card className="py-10">
-                  <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
+            {/* Apps – jetzt sicher mittig */}
+            <section className="max-w-7xl mx-auto">
+              <div className="flex flex-wrap justify-center gap-8">
+                <Card
+                  title="PriceFinder"
+                  subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
+                  className="w-[22rem] mx-auto"
+                >
+                  <p className="text-sm text-neutral-400">
+                    Klarer, sauberer Pricing-Flow.
+                  </p>
+                  <div className="mt-6">
+                    <Button onClick={() => setTool("pricefinder")} full>
+                      Öffnen
+                    </Button>
+                  </div>
                 </Card>
-              </section>
 
-              {/* Apps – immer zentriert */}
-              <section className="max-w-7xl mx-auto">
-                <div className="flex flex-wrap justify-center gap-8">
-                  <Card
-                    title="PriceFinder"
-                    subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
-                    className="w-[22rem] mx-auto"
-                  >
-                    <p className="text-sm text-neutral-400">Klarer, sauberer Pricing-Flow.</p>
-                    <div className="mt-6">
-                      <Button onClick={() => setTool("pricefinder")} full>Öffnen</Button>
-                    </div>
-                  </Card>
+                <Card
+                  title="MessageMatcher"
+                  subtitle="Messaging-Map aus Bio/Website"
+                  className="w-[22rem] mx-auto"
+                >
+                  <p className="text-sm text-neutral-400">
+                    Positionierung ohne Ratespiel.
+                  </p>
+                  <div className="mt-6">
+                    <Button onClick={() => setTool("messagematcher")} full>
+                      Öffnen
+                    </Button>
+                  </div>
+                </Card>
 
-                  <Card
-                    title="MessageMatcher"
-                    subtitle="Messaging-Map aus Bio/Website"
-                    className="w-[22rem] mx-auto"
-                  >
-                    <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
-                    <div className="mt-6">
-                      <Button onClick={() => setTool("messagematcher")} full>Öffnen</Button>
-                    </div>
-                  </Card>
+                <Card
+                  title="ContentFlow"
+                  subtitle="Hooks, Stories, Captions"
+                  className="w-[22rem] mx-auto"
+                >
+                  <p className="text-sm text-neutral-400">
+                    Struktur rein, Output rauf.
+                  </p>
+                  <div className="mt-6">
+                    <Button onClick={() => setTool("contentflow")} full>
+                      Öffnen
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </section>
+          </FadeIn>
+        )}
+        {/* Rest deines Codes (TOOL-DASHBOARD, AUTH etc.) bleibt identisch */}
+      </main>
+    </div>
+  </div>
+)
 
-                  <Card
-                    title="ContentFlow"
-                    subtitle="Hooks, Stories, Captions"
-                    className="w-[22rem] mx-auto"
-                  >
-                    <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
-                    <div className="mt-6">
-                      <Button onClick={() => setTool("contentflow")} full>Öffnen</Button>
-                    </div>
-                  </Card>
-                </div>
-              </section>
-            </FadeIn>
-          )}
 
           {/* TOOL-DASHBOARD */}
           {session && tool && (
