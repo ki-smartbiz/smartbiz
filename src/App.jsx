@@ -248,14 +248,15 @@ export default function App() {
   const TopBar = () => (
   <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
     <h1
-      className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left"
-      style={{ color: theme.gold }}
-    >
-      SmartBiz Suite{" "}
-      <span className="text-sm opacity-60 align-middle">
-        ({import.meta.env?.VITE_BUILD_TAG ?? "dev"})
-      </span>
-    </h1>
+  className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left"
+  style={{ color: theme.gold }}
+>
+  SmartBiz Suite{" "}
+  <span className="text-sm opacity-60 align-middle">
+    ({import.meta.env?.VITE_BUILD_TAG ?? "dev"})
+  </span>
+</h1>
+
 
     <nav className="flex flex-wrap items-center justify-center gap-2">
       {/* deine Buttons */}
