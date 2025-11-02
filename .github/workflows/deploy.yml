@@ -50,6 +50,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+        - name: Set build tag for Vite
+      run: echo "VITE_BUILD_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+
       # --- BUILD ---
       - name: Build project
         env:
