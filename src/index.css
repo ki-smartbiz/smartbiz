@@ -177,3 +177,17 @@ img, svg, video, canvas {
 @media (max-width: 900px) {
   .tool-layout { grid-template-columns: 1fr; }
 }
+/* Hotfix: killt das "Links-Kleben", auch wenn irgendwo noch "container" steht */
+.container {
+  max-width: 80rem;          /* ~ max-w-7xl */
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;        /* px-4 */
+  padding-right: 1rem;
+}
+@media (min-width: 640px) {
+  .container { padding-left: 1.5rem; padding-right: 1.5rem; }  /* sm:px-6 */
+}
+@media (min-width: 1024px) {
+  .container { padding-left: 2rem; padding-right: 2rem; }      /* lg:px-8 */
+}
