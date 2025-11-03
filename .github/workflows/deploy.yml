@@ -2,26 +2,26 @@ name: SmartBiz CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    # <- Build-Tag als Umgebungsvariable für den ganzen Job (voller SHA)
+    env:
+      VITE_BUILD_TAG: ${{ github.sha }}
 
     steps:
-      # --- CHECKOUT ---
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- NODE ---
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
-      # --- SECRETS CHECK ---
       - name: Check required secrets
         run: |
           missing=""
@@ -37,7 +37,6 @@ jobs:
             exit 1
           fi
 
-      # --- .env.production ---
       - name: Create .env.production
         run: |
           cat > .env.production << 'EOF'
@@ -46,32 +45,22 @@ jobs:
           VITE_PROXY_URL=${{ secrets.VITE_PROXY_URL }}
           EOF
 
-      # --- INSTALL ---
-      - name: Install dependencies
+      - name: Install
         run: npm ci
 
-      # --- BUILD TAG ---
-      - name: Set build tag for Vite
-        run: echo "VITE_BUILD_TAG=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
-
-      - name: Echo build tag (debug)
-        run: echo "Build tag is: $VITE_BUILD_TAG"
-
-      # --- BUILD ---
-      - name: Build project
+      - name: Build
         env:
           NODE_ENV: production
+          # <- an Vite weitergeben (kommt aus Job-env)
           VITE_BUILD_TAG: ${{ env.VITE_BUILD_TAG }}
         run: npm run build
 
-      # --- ARTIFACT (optional) ---
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
 
-      # --- DEPLOY ---
       - name: Deploy via FTP (FTPS explicit)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
