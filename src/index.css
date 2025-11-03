@@ -1,44 +1,23 @@
-/* ===============================
-   SmartBiz – Base Theme & Reset
-   =============================== */
-
+/* -------------------------------------------------------
+   Basisthema (einfach anpassbar)
+------------------------------------------------------- */
 :root {
-  /* Farben – hier stellst du den Look ein */
   --bg: #0b0b0b;
-  --surface: #141414;
-  --surface-2: #0f0f0f;
-  --border: #2a2a2a;
-  --text: #f5f5f5;
-  --muted: #9ca3af;
-
-  --brand: #d1a45f;        /* Gold */
-  --brand-contrast: #0b0b0b;
-  --brand-600: #c2924d;
-  --success-bg: #064e3b;
-  --success-border: #047857;
-  --success-text: #a7f3d0;
-  --error-bg: #7f1d1d;
-  --error-border: #b91c1c;
-  --error-text: #fecaca;
-
-  --radius-lg: 16px;
-  --radius-md: 10px;
-  --radius-sm: 8px;
-
-  --shadow-sm: 0 3px 0 rgba(0,0,0,.25);
-  --shadow-lg: 0 10px 30px rgba(0,0,0,.35);
-
-  --gap-1: .5rem;
-  --gap-2: .75rem;
-  --gap-3: 1rem;
-  --gap-4: 1.5rem;
-  --gap-6: 2rem;
-
-  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu,
-          Cantarell, "Noto Sans", "Helvetica Neue", Arial,
-          "Apple Color Emoji", "Segoe UI Emoji";
+  --fg: #f5f5f5;
+  --muted: #a3a3a3;
+  --panel: #141414;
+  --panel-border: #2a2a2a;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --accent: #d1a45f;     /* Gold */
+  --accent-ink: #0b0b0b; /* Text auf Accent */
+  --radius: 16px;
+  --gap: 16px;
+  --container: 80rem;
 }
 
+/* -------------------------------------------------------
+   Reset & Grundlayout
+------------------------------------------------------- */
 *,
 *::before,
 *::after { box-sizing: border-box; }
@@ -49,284 +28,152 @@ html, body {
   margin: 0;
   padding: 0;
   color-scheme: dark;
-}
-
-body {
   background: var(--bg);
-  color: var(--text);
+  color: var(--fg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-family: var(--font);
-  line-height: 1.45;
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu,
+    Cantarell, "Noto Sans", "Helvetica Neue", Arial, "Apple Color Emoji",
+    "Segoe UI Emoji";
 }
 
-/* Links/Buttons reset */
-button { font: inherit; }
-a, button { cursor: pointer; }
+img, svg, video, canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
 
-/* ===============================
-   Layout
-   =============================== */
-
-.app { min-height: 100vh; }
-
+/* -------------------------------------------------------
+   App-Shell (ZENTRIERUNG!)
+------------------------------------------------------- */
+.app { min-height: 100%; }
 .app-shell {
-  max-width: 80rem;                 /* ~ 1280px */
-  margin-inline: auto;              /* zentriert */
-  padding: var(--gap-4);
-  padding-top: var(--gap-6);
+  max-width: var(--container);
+  margin-inline: auto;
+  padding: 24px;
 }
 
 @media (min-width: 640px) {
-  .app-shell { padding-inline: 1.5rem; }
+  .app-shell { padding-inline: 32px; }
 }
 @media (min-width: 1024px) {
-  .app-shell { padding-inline: 2rem; }
+  .app-shell { padding-inline: 40px; }
 }
 
-/* Topbar */
+/* -------------------------------------------------------
+   Topbar / Brand / Nav
+------------------------------------------------------- */
 .topbar {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--gap-2);
-  margin-bottom: var(--gap-6);
-}
-
-@media (min-width: 768px) {
-  .topbar {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-  }
-}
-
-.app-title {
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  text-align: center;
-  font-size: clamp(2rem, 4vw, 3rem);
-  color: var(--brand);
-  margin: 0;
-}
-
-.build-tag {
-  font-size: .8rem;
-  margin-left: .45rem;
-  color: var(--muted);
-  opacity: .7;
-}
-
-/* Navigation */
-.nav {
-  display: flex;
+  gap: 16px;
+  row-gap: 8px;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: var(--gap-2);
+  justify-content: space-between;
+  margin-bottom: 40px;
 }
+.brand {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  font-size: clamp(28px, 5vw, 48px);
+  color: var(--accent);
+}
+.nav { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* ===============================
-   Button-System
-   =============================== */
-
+/* -------------------------------------------------------
+   Buttons
+------------------------------------------------------- */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: .5rem;
-  border-radius: var(--radius-lg);
-  padding: .55rem .85rem;
-  font-weight: 600;
-  line-height: 1.1;
+  appearance: none;
   border: 0;
-  transition: transform .12s ease, opacity .12s ease, background-color .12s ease, color .12s ease;
-  box-shadow: var(--shadow-sm);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease, background 120ms ease, color 120ms ease, border-color 120ms ease;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.25);
 }
-
-.btn--full { width: 100%; }
-
-.btn--primary {
-  background: var(--brand);
-  color: var(--brand-contrast);
+.btn--solid {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
-.btn--primary:hover { background: var(--brand-600); }
-.btn--primary:active { transform: translateY(1px); }
-
+.btn--solid:hover { transform: translateY(-1px); }
 .btn--outline {
   background: transparent;
-  border: 1px solid var(--brand);
-  color: var(--brand);
+  color: var(--accent);
+  border: 1px solid var(--accent);
 }
-.btn--outline:hover { background: var(--brand); color: var(--brand-contrast); }
-.btn--outline:active { transform: translateY(1px); }
-
-.btn--link {
-  background: transparent;
-  border: 0;
-  color: var(--brand);
-  padding: 0 .2rem;
-  box-shadow: none;
-  text-decoration: underline;
+.btn--outline:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
-.btn[disabled] { opacity: .6; cursor: not-allowed; }
+.btn--full { width: 100%; }
 
-/* ===============================
-   Cards & Content
-   =============================== */
-
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-  gap: var(--gap-6);
-}
-
+/* -------------------------------------------------------
+   Cards
+------------------------------------------------------- */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  transition: box-shadow .2s ease, border-color .2s ease, transform .2s ease;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
 }
-
-.card:hover {
-  border-color: #3a3a3a;
-  box-shadow: var(--shadow-lg);
-}
-
-.card--left { text-align: left; }
-.card__head { margin-bottom: .5rem; }
+.card__head { margin-bottom: 8px; }
 .card__title {
-  font-size: .85rem;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: .04em;
-  color: var(--brand);
-  text-transform: none;
+  color: var(--accent);
 }
 .card__subtitle {
-  margin-top: .25rem;
-  font-size: .8rem;
+  margin-top: 4px;
+  font-size: 12px;
   color: var(--muted);
 }
-.card--app { width: 100%; }
-.center { text-align: center; }
-.lead { font-size: 1.1rem; color: #d1d5db; }
-.section { margin-top: var(--gap-6); }
-.spacer { height: .75rem; }
+.card__body { font-size: 14px; }
 
-/* ===============================
-   Grid / Sidebar
-   =============================== */
-
-.grid-12 { display: grid; grid-template-columns: 1fr; }
-.gap { gap: var(--gap-4); }
-.row { display: flex; align-items: center; }
-.col { display: flex; flex-direction: column; }
-.wrap { flex-wrap: wrap; }
-
-@media (min-width: 1024px) {
-  .grid-12 { grid-template-columns: 4fr 8fr; }
-}
-
-.sidebar .btn.is-active { opacity: 1; }
-.main { min-width: 0; }
-
-/* ===============================
-   Banner (Hinweise)
-   =============================== */
-
-.banner {
-  border-radius: var(--radius-md);
-  padding: .6rem .8rem;
-  border: 1px solid var(--border);
-  background: #141414;
-  margin-bottom: var(--gap-3);
-  font-size: .95rem;
-}
-
-.banner__inner {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--gap-2);
-}
-
-.banner--success {
-  background: var(--success-bg);
-  border-color: var(--success-border);
-  color: var(--success-text);
-}
-.banner--error {
-  background: var(--error-bg);
-  border-color: var(--error-border);
-  color: var(--error-text);
-}
-
-/* ===============================
-   Forms
-   =============================== */
-
-.form { display: grid; gap: var(--gap-3); }
-
-.field { display: grid; gap: .35rem; }
-.field__label { font-size: .9rem; color: #e5e7eb; }
-
-.input {
-  width: 100%;
-  border-radius: var(--radius-sm);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  color: #e5e7eb;
-  padding: .55rem .75rem;
-  outline: none;
-  transition: border-color .12s ease, box-shadow .12s ease;
-}
-.input:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 35%, transparent);
-}
-
-.form__error { color: var(--error-text); }
-
-/* ===============================
-   Links & Hilfsklassen
-   =============================== */
-
-.link {
-  color: var(--brand);
-  background: transparent;
-  border: 0;
-  padding: 0 .2rem;
-  text-decoration: underline;
-}
-.link:hover { opacity: .9; }
-
+/* -------------------------------------------------------
+   Layout-Helfer
+------------------------------------------------------- */
+.stack > * + * { margin-top: 24px; }
+.mt { margin-top: 16px; }
+.lead { font-size: 18px; color: #d4d4d4; }
 .muted { color: var(--muted); }
+.accent { color: var(--accent); }
+.sep { opacity: .6; margin-inline: 8px; }
 
-/* ===============================
-   Toolbar (Breadcrumb/Actions)
-   =============================== */
+.narrow { max-width: 720px; margin-inline: auto; }
 
-.toolbar {
+.grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.bar {
   display: flex;
   align-items: center;
+  gap: 12px;
   justify-content: space-between;
-  gap: var(--gap-3);
-  margin-bottom: var(--gap-3);
 }
-.toolbar__crumbs { display: flex; align-items: center; gap: .5rem; }
-.crumb { color: var(--brand); }
 
-/* ===============================
-   Animations
-   =============================== */
+.crumbs { display: flex; align-items: center; gap: 8px; }
 
-.fade {
-  opacity: 0;
-  transform: translateY(.25rem);
-  transition: opacity .25s ease, transform .25s ease;
+/* 2-Spalten-Tool-Layout */
+.tool-layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 320px 1fr;
 }
-.fade--in {
-  opacity: 1;
-  transform: translateY(0);
+.tool-side { }
+.tool-main { }
+
+.vstack > * + * { margin-top: 8px; }
+
+/* Kleinere Screens: Sidebar unter Main */
+@media (max-width: 900px) {
+  .tool-layout { grid-template-columns: 1fr; }
 }
