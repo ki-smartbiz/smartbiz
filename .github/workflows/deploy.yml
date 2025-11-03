@@ -10,34 +10,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # --- CODE CHECKOUT ---
-      - name: Checkout Repository
+      # --- CHECKOUT ---
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # --- NODE SETUP ---
-      - name: Setup Node.js
+      # --- NODE ---
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
-      # --- SECRET CHECK ---
+      # --- SECRETS CHECK ---
       - name: Check required secrets
         run: |
           missing=""
-          [ -z "${{ secrets.VITE_SUPABASE_URL }}" ] && missing="${missing} VITE_SUPABASE_URL"
-          [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ] && missing="${missing} VITE_SUPABASE_ANON_KEY"
-          [ -z "${{ secrets.VITE_PROXY_URL }}" ] && missing="${missing} VITE_PROXY_URL"
-          [ -z "${{ secrets.FTP_SERVER }}" ] && missing="${missing} FTP_SERVER"
-          [ -z "${{ secrets.FTP_USERNAME }}" ] && missing="${missing} FTP_USERNAME"
-          [ -z "${{ secrets.FTP_PASSWORD }}" ] && missing="${missing} FTP_PASSWORD"
-          [ -z "${{ secrets.FTP_REMOTE_DIR }}" ] && missing="${missing} FTP_REMOTE_DIR"
+          [ -z "${{ secrets.VITE_SUPABASE_URL }}" ] && missing="$missing VITE_SUPABASE_URL"
+          [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ] && missing="$missing VITE_SUPABASE_ANON_KEY"
+          [ -z "${{ secrets.VITE_PROXY_URL }}" ] && missing="$missing VITE_PROXY_URL"
+          [ -z "${{ secrets.FTP_SERVER }}" ] && missing="$missing FTP_SERVER"
+          [ -z "${{ secrets.FTP_USERNAME }}" ] && missing="$missing FTP_USERNAME"
+          [ -z "${{ secrets.FTP_PASSWORD }}" ] && missing="$missing FTP_PASSWORD"
+          [ -z "${{ secrets.FTP_REMOTE_DIR }}" ] && missing="$missing FTP_REMOTE_DIR"
           if [ -n "$missing" ]; then
-            echo "❌ Fehlende Secrets:${missing}"
+            echo "Missing secrets:$missing"
             exit 1
           fi
 
-      # --- ENV FILE ---
+      # --- .env.production ---
       - name: Create .env.production
         run: |
           cat > .env.production << 'EOF'
@@ -48,11 +48,11 @@ jobs:
 
       # --- INSTALL ---
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      # --- BUILD TAG (für Anzeige in der App) ---
+      # --- BUILD TAG ---
       - name: Set build tag for Vite
-        run: echo "VITE_BUILD_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        run: echo "VITE_BUILD_TAG=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
       - name: Echo build tag (debug)
         run: echo "Build tag is: $VITE_BUILD_TAG"
@@ -64,7 +64,7 @@ jobs:
           VITE_BUILD_TAG: ${{ env.VITE_BUILD_TAG }}
         run: npm run build
 
-      # --- ARTEFAKT UPLOAD (optional für Debugging) ---
+      # --- ARTIFACT (optional) ---
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
         with:
@@ -80,9 +80,9 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
-          security: loose            # falls dein Hoster strikt fordert: 'strict'
-          local-dir: dist/           # trailing slash ist korrekt
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}   # z.B. /htdocs/ai-smartbiz/
+          security: loose
+          local-dir: dist/
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           dangerous-clean-slate: true
           log-level: verbose
           state-name: .ftp-deploy-sync-state.json
