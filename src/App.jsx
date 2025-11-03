@@ -7,11 +7,12 @@ import MessageMatcher from "./modules/MessageMatcher";
 import ContentFlow from "./modules/ContentFlow";
 
 const theme = {
-  bg: "bg-[#0b0b0b]",
+  bg: "bg-pink-900",
   text: "text-pink-300",
-  gold: "#d1a45f",
-  goldHover: "#c2924d",
+  gold: "#ff99cc",
+  goldHover: "#ff66b2",
 };
+
 
 const Card = ({ title, subtitle, children, align = "center", className = "" }) => (
   <div
