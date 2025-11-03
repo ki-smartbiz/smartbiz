@@ -8,7 +8,7 @@ on:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
-    # <- Build-Tag als Umgebungsvariable für den ganzen Job (voller SHA)1
+    # <- Build-Tag als Umgebungsvariable für den ganzen Job (voller SHA)
     env:
       VITE_BUILD_TAG: ${{ github.sha }}
 
