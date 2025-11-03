@@ -8,7 +8,7 @@ import ContentFlow from "./modules/ContentFlow";
 
 const theme = {
   bg: "bg-[#0b0b0b]",
-  text: "text-neutral-100",
+  text: "text-pink-300",
   gold: "#d1a45f",
   goldHover: "#c2924d",
 };
