@@ -50,14 +50,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-        - name: Set build tag for Vite
-      run: echo "VITE_BUILD_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+      # --- BUILD TAG (für Anzeige in der App) ---
+      - name: Set build tag for Vite
+        run: echo "VITE_BUILD_TAG=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
+      - name: Echo build tag (debug)
+        run: echo "Build tag is: $VITE_BUILD_TAG"
 
       # --- BUILD ---
       - name: Build project
         env:
           NODE_ENV: production
+          VITE_BUILD_TAG: ${{ env.VITE_BUILD_TAG }}
         run: npm run build
 
       # --- ARTEFAKT UPLOAD (optional für Debugging) ---
@@ -76,9 +80,9 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           port: 21
-          security: loose
-          local-dir: dist/
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
+          security: loose            # falls dein Hoster strikt fordert: 'strict'
+          local-dir: dist/           # trailing slash ist korrekt
+          server-dir: ${{ secrets.FTP_REMOTE_DIR }}   # z.B. /htdocs/ai-smartbiz/
           dangerous-clean-slate: true
           log-level: verbose
           state-name: .ftp-deploy-sync-state.json
