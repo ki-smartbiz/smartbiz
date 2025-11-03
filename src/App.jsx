@@ -1,171 +1,125 @@
+// src/App.jsx
 import { useState } from "react";
-import "./index.css";
 
-function Button({ children, onClick, variant = "solid", full = false }) {
+export default function App() {
+  const [tool, setTool] = useState(null);
+
+  return (
+    <div className="min-h-screen bg-[#0b0b0b] text-neutral-100">
+      {/* HARTES Zentrier-Wrapper: funktioniert in Tailwind v4 */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Topbar */}
+        <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left" style={{ color: "#d1a45f" }}>
+            SmartBiz Suite
+          </h1>
+          <nav className="flex flex-wrap items-center justify-center gap-2">
+            <Button variant="outline" onClick={() => { setTool(null); }}>Home</Button>
+            <Button variant="outline">Konto</Button>
+            <Button>Logout</Button>
+          </nav>
+        </header>
+
+        {/* Greeting */}
+        {!tool && (
+          <section className="max-w-3xl mx-auto mb-10">
+            <Card>
+              <p className="text-lg md:text-xl font-medium text-neutral-300">
+                Hey thomas, let’s move some mountains today ⚡
+              </p>
+            </Card>
+          </section>
+        )}
+
+        {/* Apps – sauber mittig in Zeile, umbrechend */}
+        {!tool && (
+          <section className="max-w-7xl mx-auto">
+            <div className="flex flex-wrap justify-center gap-8">
+              <AppCard
+                title="PriceFinder"
+                subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
+                onOpen={() => setTool("pricefinder")}
+              />
+              <AppCard
+                title="MessageMatcher"
+                subtitle="Messaging-Map aus Bio/Website"
+                onOpen={() => setTool("messagematcher")}
+              />
+              <AppCard
+                title="ContentFlow"
+                subtitle="Hooks, Stories, Captions"
+                onOpen={() => setTool("contentflow")}
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Dummy-Module-Fläche (zentriert) */}
+        {tool && (
+          <section className="max-w-5xl mx-auto">
+            <div className="mb-5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button className="text-sm text-neutral-400 hover:text-neutral-200" onClick={() => setTool(null)}>Home</button>
+                <span className="text-neutral-600">/</span>
+                <span className="text-sm" style={{ color: "#d1a45f" }}>{tool}</span>
+              </div>
+              <Button variant="outline" onClick={() => setTool(null)}>← Zurück</Button>
+            </div>
+
+            <Card align="left">
+              <p className="text-neutral-300">
+                Hier würde jetzt das Modul <span className="font-semibold">{tool}</span> geladen.
+              </p>
+            </Card>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- kleine UI-Primitives ---------- */
+
+function Card({ children, align = "center", className = "" }) {
+  return (
+    <div
+      className={`rounded-2xl p-6 bg-[#171717] border border-[#3a3a3a] hover:border-[#4a4a4a] hover:shadow-[0_12px_32px_rgba(0,0,0,0.45)] transition-all duration-300 ${align === "left" ? "text-left" : "text-center"} ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Button({ children, onClick, variant = "solid", className = "" }) {
+  const gold = "#d1a45f";
+  const goldHover = "#c2924d";
+  const styleVars = { "--gold": gold, "--goldHover": goldHover };
+  const base =
+    variant === "solid"
+      ? "bg-[var(--gold)] hover:bg-[var(--goldHover)] text-black"
+      : "border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black";
   return (
     <button
-      className={`btn ${variant === "outline" ? "btn--outline" : "btn--solid"} ${
-        full ? "btn--full" : ""
-      }`}
       onClick={onClick}
-      type="button"
+      style={styleVars}
+      className={`rounded-2xl px-4 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 shadow-[0_3px_0_rgba(0,0,0,0.25)] ${base} ${className}`}
     >
       {children}
     </button>
   );
 }
 
-function Card({ title, subtitle, children }) {
+function AppCard({ title, subtitle, onOpen }) {
   return (
-    <article className="card">
-      {(title || subtitle) && (
-        <header className="card__head">
-          {title && <div className="card__title">{title}</div>}
-          {subtitle && <div className="card__subtitle">{subtitle}</div>}
-        </header>
-      )}
-      <div className="card__body">{children}</div>
-    </article>
-  );
-}
-
-function Topbar({ onHome, onAccount, onLogout }) {
-  return (
-    <header className="topbar">
-      <h1 className="brand">SmartBiz Suite</h1>
-      <nav className="nav">
-        <Button variant="outline" onClick={onHome}>Home</Button>
-        <Button variant="outline" onClick={onAccount}>Konto</Button>
-        <Button onClick={onLogout}>Logout</Button>
-      </nav>
-    </header>
-  );
-}
-
-export default function App() {
-  const [view, setView] = useState("home"); // "home" | "account" | "tool"
-  const [tool, setTool] = useState(null);   // null | "pricefinder" | "messagematcher" | "contentflow"
-
-  const greeting = "Hey thomas, let’s move some mountains today ⚡";
-
-  const openTool = (key) => {
-    setTool(key);
-    setView("tool");
-  };
-
-  const backHome = () => {
-    setTool(null);
-    setView("home");
-  };
-
-  return (
-    <div className="app">
-      <div className="app-shell">
-        <Topbar
-          onHome={backHome}
-          onAccount={() => setView("account")}
-          onLogout={() => alert("Logout (Demo)")}
-        />
-
-        {view === "home" && (
-          <main className="stack">
-            <section className="narrow">
-              <Card>
-                <p className="lead">{greeting}</p>
-              </Card>
-            </section>
-
-            <section className="grid">
-              <Card
-                title="PriceFinder"
-                subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
-              >
-                <p className="muted">Klarer, sauberer Pricing-Flow.</p>
-                <div className="mt">
-                  <Button full onClick={() => openTool("pricefinder")}>Öffnen</Button>
-                </div>
-              </Card>
-
-              <Card
-                title="MessageMatcher"
-                subtitle="Messaging-Map aus Bio/Website"
-              >
-                <p className="muted">Positionierung ohne Ratespiel.</p>
-                <div className="mt">
-                  <Button full onClick={() => openTool("messagematcher")}>Öffnen</Button>
-                </div>
-              </Card>
-
-              <Card
-                title="ContentFlow"
-                subtitle="Hooks, Stories, Captions"
-              >
-                <p className="muted">Struktur rein, Output rauf.</p>
-                <div className="mt">
-                  <Button full onClick={() => openTool("contentflow")}>Öffnen</Button>
-                </div>
-              </Card>
-            </section>
-          </main>
-        )}
-
-        {view === "tool" && (
-          <main className="stack">
-            <div className="bar">
-              <Button variant="outline" onClick={backHome}>← Zurück</Button>
-              <div className="crumbs">
-                <span className="muted">Home</span>
-                <span className="sep">/</span>
-                <span className="accent">
-                  {tool === "pricefinder" ? "PriceFinder"
-                    : tool === "messagematcher" ? "MessageMatcher"
-                    : "ContentFlow"}
-                </span>
-              </div>
-            </div>
-
-            <section className="tool-layout">
-              <aside className="tool-side">
-                <Card title="Navigation">
-                  <div className="vstack">
-                    <Button variant="outline" full onClick={() => setTool("pricefinder")}>PriceFinder</Button>
-                    <Button variant="outline" full onClick={() => setTool("messagematcher")}>MessageMatcher</Button>
-                    <Button variant="outline" full onClick={() => setTool("contentflow")}>ContentFlow</Button>
-                  </div>
-                </Card>
-              </aside>
-
-              <section className="tool-main">
-                <Card
-                  title={
-                    tool === "pricefinder" ? "PriceFinder" :
-                    tool === "messagematcher" ? "MessageMatcher" : "ContentFlow"
-                  }
-                >
-                  <p className="muted">
-                    Hier kommt dein Modul-Content rein (Formulare/Flows). In dieser
-                    Minimalversion ist es nur ein Platzhalter, damit wir das Layout
-                    sauber testen können.
-                  </p>
-                </Card>
-              </section>
-            </section>
-          </main>
-        )}
-
-        {view === "account" && (
-          <main className="stack">
-            <section className="narrow">
-              <Card title="Konto">
-                <p className="muted">Account-Einstellungen (Demo).</p>
-                <div className="mt">
-                  <Button variant="outline" onClick={backHome}>Zurück</Button>
-                </div>
-              </Card>
-            </section>
-          </main>
-        )}
+    <Card className="w-[22rem]">
+      <div className="mb-3">
+        <div className="text-sm font-semibold tracking-wide" style={{ color: "#d1a45f" }}>{title}</div>
+        <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>
       </div>
-    </div>
+      <p className="text-sm text-neutral-400">Klarer, sauberer Flow.</p>
+      <div className="mt-6">
+        <Button onClick={onOpen} className="w-full">Öffnen</Button>
+      </div>
+    </Card>
   );
 }
