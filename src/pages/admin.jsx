@@ -1,317 +1,336 @@
-// src/page/Admin.jsx
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { supabase } from "../lib/supabaseClient"; // <-- KORREKT relativ
+// src/App.jsx
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "./lib/supabaseClient";
 
-function UIButton({ children, variant = "primary", className = "", ...props }) {
+// Module (deine echten Implementierungen)
+import PriceFinder from "./modules/PriceFinder";
+import MessageMatcher from "./modules/MessageMatcher";
+import ContentFlow from "./modules/ContentFlow";
+
+// Admin-Datei ist klein geschrieben:
+import Admin from "./pages/admin";
+
+/* ============ UI Primitives ============ */
+const theme = { gold: "#d1a45f", goldHover: "#c2924d" };
+
+function Button({ children, onClick, variant = "outline", className = "", type = "button", disabled }) {
+  const vars = { "--gold": theme.gold, "--goldHover": theme.goldHover };
   const base =
-    "px-3 py-1.5 rounded-lg text-sm border transition disabled:opacity-60 disabled:cursor-not-allowed";
-  const variants = {
-    primary: "bg-black text-white border-black hover:bg-gray-900",
-    outline: "bg-white text-gray-900 border-gray-300 hover:bg-gray-50",
-  };
+    variant === "solid"
+      ? "bg-[var(--gold)] text-black hover:bg-[var(--goldHover)]"
+      : "border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black";
   return (
-    <button className={`${base} ${variants[variant]} ${className}`} {...props}>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      style={vars}
+      className={`rounded-2xl px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${base} ${className}`}
+    >
       {children}
     </button>
   );
 }
 
-function UISwitch({ checked, onChange }) {
+function Card({ title, subtitle, children, className = "" }) {
   return (
-    <label className="inline-flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        className="peer sr-only"
-        checked={checked}
-        onChange={(e) => onChange?.(e.target.checked)}
-      />
-      <span className="w-10 h-6 rounded-full bg-gray-300 peer-checked:bg-green-500 relative transition">
-        <span className="absolute left-1 top-1 h-4 w-4 bg-white rounded-full transition peer-checked:translate-x-4" />
-      </span>
-      <span className="text-[13px] text-gray-700">{checked ? "an" : "aus"}</span>
-    </label>
-  );
-}
-
-function Badge({ children, tone = "default" }) {
-  const toneClass =
-    tone === "default"
-      ? "bg-gray-900 text-white"
-      : "bg-gray-100 text-gray-800 border border-gray-200";
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded ${toneClass}`}>{children}</span>
-  );
-}
-
-function Card({ title, children, className = "" }) {
-  return (
-    <div className={`rounded-2xl border bg-white ${className}`}>
-      {title ? (
-        <div className="px-4 py-3 border-b">
-          <div className="font-semibold">{title}</div>
+    <div className={`rounded-2xl p-6 bg-[#141414] border border-[#2a2a2a] ${className}`}>
+      {(title || subtitle) && (
+        <div className="mb-3">
+          {title && <div className="text-sm font-semibold" style={{ color: theme.gold }}>{title}</div>}
+          {subtitle && <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>}
         </div>
-      ) : null}
-      <div className="p-4">{children}</div>
+      )}
+      {children}
     </div>
   );
 }
 
-export default function Admin({ onBack }) {
-  const [me, setMe] = useState(null);
-  const [ready, setReady] = useState(false);
-
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [rows, setRows] = useState([]); // [{ id, email, role, features: Set }]
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-
-  const ALL_FEATURES = useMemo(
-    () => [
-      { key: "pricefinder", label: "PriceFinder" },
-      { key: "messagematcher", label: "MessageMatcher" },
-      { key: "contentflow", label: "ContentFlow" },
-    ],
-    []
+function Crumb({ title }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-neutral-400">
+      <span>Home</span>
+      <span className="text-neutral-600">/</span>
+      <span style={{ color: theme.gold }}>{title}</span>
+    </div>
   );
+}
 
-  // Initial Admin-Check
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data: sess } = await supabase.auth.getUser();
-        const uid = sess?.user?.id;
-        if (!uid) throw new Error("Keine Session");
-        const { data: myp, error: pe } = await supabase
-          .from("profiles")
-          .select("id,email,role")
-          .eq("id", uid)
-          .single();
-        if (pe) throw pe;
-        setMe(myp);
-      } catch (e) {
-        console.error(e);
-        setError("Admin-Check fehlgeschlagen.");
-      } finally {
-        setReady(true);
-      }
-    })();
-  }, []);
+function TextField({ label, type = "text", value, onChange, autoComplete, placeholder }) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-sm text-neutral-300">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        className="rounded-md bg-[#0f0f0f] border border-[#2a2a2a] px-3 py-2 text-neutral-200 focus:outline-none focus:border-[#d1a45f]"
+      />
+    </label>
+  );
+}
 
-  // Suche (mit Debounce)
-  const debounceRef = useRef(null);
-  const onChangeSearch = (v) => {
-    setQ(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => search(v), 350);
+/* ============ Auth Views (inline) ============ */
+function LoginView({ onOK, onSwitch }) {
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr("");
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: (email || "").trim().toLowerCase(),
+        password: pw,
+      });
+      if (error) throw error;
+      onOK?.();
+    } catch (e2) {
+      setErr(e2?.message || "Login fehlgeschlagen.");
+    }
   };
 
-  const search = useCallback(
-    async (queryStr) => {
-      setError("");
-      setNotice("");
-      setLoading(true);
-      try {
-        let query = supabase
-          .from("profiles")
-          .select("id,email,role")
-          .order("email");
-        if (queryStr?.trim())
-          query = query.ilike("email", `%${queryStr.trim()}%`);
-        const { data: profiles, error: pe } = await query;
-        if (pe) throw pe;
-
-        const ids = profiles.map((p) => p.id);
-        let map = {};
-        if (ids.length) {
-          const { data: feats, error: fe } = await supabase
-            .from("user_features")
-            .select("user_id,feature_key")
-            .in("user_id", ids);
-          if (fe) throw fe;
-          for (const f of feats || []) {
-            (map[f.user_id] ||= new Set()).add(f.feature_key);
-          }
-        }
-        setRows(
-          profiles.map((p) => ({ ...p, features: map[p.id] || new Set() }))
-        );
-      } catch (e) {
-        console.error(e);
-        setError(e.message || "Suche fehlgeschlagen.");
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
+  return (
+    <section className="max-w-md mx-auto">
+      <Card title="Login" subtitle="Willkommen zurück">
+        <form className="grid gap-3" onSubmit={submit}>
+          <TextField label="E-Mail" value={email} onChange={setEmail} autoComplete="username" />
+          <TextField label="Passwort" type="password" value={pw} onChange={setPw} autoComplete="current-password" />
+          {err ? <div className="text-rose-400 text-sm">{err}</div> : null}
+        <div className="flex gap-2">
+            <Button variant="solid" type="submit">Einloggen</Button>
+            <Button onClick={onSwitch}>Registrieren</Button>
+          </div>
+        </form>
+      </Card>
+    </section>
   );
+}
 
-  // Initiale Suche leer (alle)
-  useEffect(() => {
-    if (ready && me?.role === "admin") search("");
-  }, [ready, me, search]);
+function RegisterView({ onOK, onSwitch }) {
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
 
-  async function toggleFeature(userId, featureKey, enabled) {
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr("");
     try {
-      setNotice("");
-      if (enabled) {
-        const { error } = await supabase
-          .from("user_features")
-          .upsert({ user_id: userId, feature_key: featureKey, granted_by: me.id });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("user_features")
-          .delete()
-          .eq("user_id", userId)
-          .eq("feature_key", featureKey);
-        if (error) throw error;
-      }
-      setRows((prev) =>
-        prev.map((r) => {
-          if (r.id !== userId) return r;
-          const next = new Set(r.features);
-          enabled ? next.add(featureKey) : next.delete(featureKey);
-          return { ...r, features: next };
-        })
-      );
-      setNotice(`${featureKey} ${enabled ? "freigeschaltet" : "entzogen"}.`);
-    } catch (e) {
-      console.error(e);
-      setError("Änderung konnte nicht gespeichert werden.");
-    }
-  }
-
-  async function toggleRole(userId, toAdmin) {
-    try {
-      setNotice("");
-      const newRole = toAdmin ? "admin" : "user";
-      const { error } = await supabase
-        .from("profiles")
-        .update({ role: newRole })
-        .eq("id", userId);
+      const { error } = await supabase.auth.signUp({
+        email: (email || "").trim().toLowerCase(),
+        password: pw,
+      });
       if (error) throw error;
-      setRows((prev) =>
-        prev.map((r) => (r.id === userId ? { ...r, role: newRole } : r))
-      );
-      if (userId === me?.id) setMe((m) => ({ ...m, role: newRole }));
-      setNotice(`Nutzer ist jetzt ${newRole}.`);
-    } catch (e) {
-      console.error(e);
-      setError("Rollenwechsel fehlgeschlagen.");
+      onOK?.(); // ggf. E-Mail-Bestätigung je nach Project-Settings
+    } catch (e2) {
+      setErr(e2?.message || "Registrierung fehlgeschlagen.");
     }
-  }
-
-  if (!ready)
-    return (
-      <div className="max-w-5xl mx-auto p-6 text-sm text-gray-500">
-        Admin-Check…
-      </div>
-    );
-  if (!me || me.role !== "admin") {
-    return (
-      <div className="max-w-3xl mx-auto p-6">
-        <UIButton variant="outline" onClick={onBack}>
-          ← Zurück
-        </UIButton>
-        <Card title="Zugriff verweigert" className="mt-4">
-          <div>Du bist kein Admin.</div>
-        </Card>
-      </div>
-    );
-  }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Admin-Dashboard</h1>
-        <UIButton variant="outline" onClick={onBack}>
-          ← Zurück
-        </UIButton>
-      </div>
-
-      <Card title="Suche" className="mt-4">
-        <div className="flex gap-3 items-center">
-          <input
-            value={q}
-            onChange={(e) => onChangeSearch(e.target.value)}
-            placeholder="E-Mail enthält…"
-            className="max-w-md w-full border rounded-lg px-3 py-2 text-sm"
-          />
-          <UIButton onClick={() => search(q)} disabled={loading}>
-            {loading ? "Suche…" : "Suchen"}
-          </UIButton>
-        </div>
-        {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
-        {notice && <p className="text-green-600 text-sm mt-3">{notice}</p>}
-      </Card>
-
-      <Card title="Nutzerverwaltung" className="mt-4">
-        {rows.length === 0 ? (
-          <p className="text-sm text-gray-500">Keine Einträge. Suche starten.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500">
-                  <th className="py-2 pr-4">E-Mail</th>
-                  <th className="py-2 pr-4">Rolle</th>
-                  {ALL_FEATURES.map((f) => (
-                    <th key={f.key} className="py-2 pr-4">
-                      {f.label}
-                    </th>
-                  ))}
-                  <th className="py-2 pr-4">Aktion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id} className="border-t">
-                    <td className="py-2 pr-4">{r.email}</td>
-                    <td className="py-2 pr-4">
-                      <Badge tone={r.role === "admin" ? "default" : "muted"}>
-                        {r.role}
-                      </Badge>
-                    </td>
-                    {ALL_FEATURES.map((f) => {
-                      const enabled = r.features.has(f.key);
-                      return (
-                        <td key={f.key} className="py-2 pr-4">
-                          <UISwitch
-                            checked={enabled}
-                            onChange={(val) =>
-                              toggleFeature(r.id, f.key, val)
-                            }
-                          />
-                        </td>
-                      );
-                    })}
-                    <td className="py-2 pr-4">
-                      {r.role === "admin" ? (
-                        <UIButton
-                          variant="outline"
-                          onClick={() => toggleRole(r.id, false)}
-                        >
-                          Admin entziehen
-                        </UIButton>
-                      ) : (
-                        <UIButton onClick={() => toggleRole(r.id, true)}>
-                          Admin machen
-                        </UIButton>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+    <section className="max-w-md mx-auto">
+      <Card title="Registrieren" subtitle="Starte los">
+        <form className="grid gap-3" onSubmit={submit}>
+          <TextField label="E-Mail" value={email} onChange={setEmail} autoComplete="username" />
+          <TextField label="Passwort" type="password" value={pw} onChange={setPw} autoComplete="new-password" />
+          {err ? <div className="text-rose-400 text-sm">{err}</div> : null}
+          <div className="flex gap-2">
+            <Button variant="solid" type="submit">Konto anlegen</Button>
+            <Button onClick={onSwitch}>Zum Login</Button>
           </div>
-        )}
-        <div className="my-4 border-t" />
-        <p className="text-xs text-gray-500">
-          Hinweis: DB-Policies erzwingen, dass nur freigeschaltete Features
-          genutzt werden können.
-        </p>
+        </form>
       </Card>
+    </section>
+  );
+}
+
+/* ============ Konto (inline) ============ */
+function AccountView({ session }) {
+  const mail = session?.user?.email || "—";
+  return (
+    <section className="max-w-xl mx-auto">
+      <Card title="Konto" subtitle="Deine Session">
+        <div className="text-sm text-neutral-300">
+          E-Mail: <span className="text-neutral-100">{mail}</span>
+        </div>
+      </Card>
+    </section>
+  );
+}
+
+/* ============ Main App ============ */
+export default function App() {
+  const [view, setView] = useState("home"); // "home" | "pricefinder" | "messagematcher" | "contentflow" | "login" | "register" | "account" | "admin"
+  const [session, setSession] = useState(null);
+  const [role, setRole] = useState(null);
+
+  // Session laden & Listener
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (mounted) setSession(data.session ?? null);
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess ?? null));
+    return () => sub?.subscription?.unsubscribe?.();
+  }, []);
+
+  // Rolle aus profiles.role
+  useEffect(() => {
+    let stop = false;
+    (async () => {
+      if (!session?.user?.id) {
+        setRole(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+      if (!stop) setRole(error ? null : data?.role ?? null);
+    })();
+    return () => { stop = true; };
+  }, [session]);
+
+  const greeting = useMemo(() => {
+    const email = session?.user?.email || "";
+    const nick = email.split("@")[0] || "there";
+    return `Hey ${nick}, let’s move some mountains today ⚡`;
+  }, [session]);
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setView("login");
+  };
+
+  const TopBar = () => (
+    <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
+      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left" style={{ color: theme.gold }}>
+        SmartBiz Suite
+      </h1>
+      <nav className="mt-3 flex flex-wrap items-center gap-2">
+        <Button onClick={() => setView("home")}>Home</Button>
+        {session ? (
+          <>
+            <Button onClick={() => setView("account")}>Konto</Button>
+            {role === "admin" && <Button onClick={() => setView("admin")}>Admin</Button>}
+            <Button variant="solid" onClick={logout}>Logout</Button>
+          </>
+        ) : (
+          <Button variant="solid" onClick={() => setView("login")}>Login</Button>
+        )}
+      </nav>
+    </header>
+  );
+
+  return (
+    <div className="min-h-screen bg-[#0b0b0b] text-neutral-100">
+      {/* Harte Zentrierung kommt aus src/index.css (.app-shell) */}
+      <div className="app-shell">
+        <TopBar />
+
+        {/* AUTH */}
+        {!session && view === "login" && (
+          <LoginView onOK={() => setView("home")} onSwitch={() => setView("register")} />
+        )}
+        {!session && view === "register" && (
+          <RegisterView onOK={() => setView("login")} onSwitch={() => setView("login")} />
+        )}
+
+        {/* HOME */}
+        {view === "home" && (
+          <main className="space-y-10">
+            <section className="max-w-3xl mx-auto">
+              <Card>
+                <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
+              </Card>
+            </section>
+
+            <section className="max-w-7xl mx-auto">
+              <div className="flex flex-wrap justify-center gap-8">
+                <Card
+                  title="PriceFinder"
+                  subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
+                  className="w-[22rem]"
+                >
+                  <p className="text-sm text-neutral-400">Klarer, sauberer Flow.</p>
+                  <div className="mt-6">
+                    <Button variant="solid" className="w-full" onClick={() => setView("pricefinder")}>
+                      Öffnen
+                    </Button>
+                  </div>
+                </Card>
+
+                <Card
+                  title="MessageMatcher"
+                  subtitle="Messaging-Map aus Bio/Website"
+                  className="w-[22rem]"
+                >
+                  <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
+                  <div className="mt-6">
+                    <Button variant="solid" className="w-full" onClick={() => setView("messagematcher")}>
+                      Öffnen
+                    </Button>
+                  </div>
+                </Card>
+
+                <Card
+                  title="ContentFlow"
+                  subtitle="Hooks, Stories, Captions"
+                  className="w-[22rem]"
+                >
+                  <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
+                  <div className="mt-6">
+                    <Button variant="solid" className="w-full" onClick={() => setView("contentflow")}>
+                      Öffnen
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            </section>
+          </main>
+        )}
+
+        {/* MODULE */}
+        {view === "pricefinder" && (
+          <section className="max-w-5xl mx-auto">
+            <Crumb title="pricefinder" />
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><PriceFinder /></div>
+          </section>
+        )}
+
+        {view === "messagematcher" && (
+          <section className="max-w-5xl mx-auto">
+            <Crumb title="messagematcher" />
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><MessageMatcher /></div>
+          </section>
+        )}
+
+        {view === "contentflow" && (
+          <section className="max-w-5xl mx-auto">
+            <Crumb title="contentflow" />
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><ContentFlow /></div>
+          </section>
+        )}
+
+        {/* KONTO / ADMIN */}
+        {session && view === "account" && <AccountView session={session} />}
+
+        {session && role === "admin" && view === "admin" && (
+          <section className="max-w-6xl mx-auto">
+            <Crumb title="admin" />
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><Admin onBack={() => setView("home")} /></div>
+          </section>
+        )}
+      </div>
     </div>
   );
 }
