@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
+/** >>> HIER EINMAL DEINE ÖFFENTLICHE PROXY-URL SETZEN <<< 
+ *  Beispiel: https://deine-domain.tld/proxy.php
+ *  Kein .env, kein lokaler Build nötig.
+ */
+const PROXY_URL = 'https://ai.ki-smartbiz.de/public_html/proxy.php'
+
 export default function PriceFinder({ onBack }) {
   const [form, setForm] = useState({
     erfahrung: '', angebot: '', zielkunde: '', nutzen: '',
@@ -22,7 +28,7 @@ export default function PriceFinder({ onBack }) {
     if (!uid) { setError('Keine Session. Bitte neu einloggen.'); setLoading(false); return }
 
     try {
-      // 1) GPT/Proxy call (fällt auf Mock zurück, wenn kein Proxy gesetzt)
+      // 1) GPT/Proxy call (fällt auf Mock zurück, wenn PROXY_URL leer)
       const out = await callPriceFinderViaProxy(form)
 
       // 2) Ergebnis speichern
@@ -109,7 +115,16 @@ function PriceCard({ title, v, why }) {
 }
 
 async function callPriceFinderViaProxy(input) {
-  const proxy = import.meta.env.VITE_PROXY_URL // z. B. https://deine-domain.de/proxy.php
+  // Fester Endpoint statt .env (du willst nicht lokal builden)
+  const proxy = (PROXY_URL || '').trim()
+
+  // Lokaler/Offline-Fallback (wenn PROXY_URL leer ist)
+  if (!proxy) {
+    const base = Number(String(input.preisgefühlt).replace(/[^\d]/g, '')) || 200
+    return mockFromBase(base)
+  }
+
+  // Request vorbereiten
   const body = {
     model: 'gpt-4o-mini',
     messages: [
@@ -119,33 +134,67 @@ async function callPriceFinderViaProxy(input) {
     response_format: { type: 'json_object' }
   }
 
-  // Lokaler Fallback (ohne Proxy) — damit du sofort weiterbauen kannst
-  if (!proxy) {
-    const base = Number(String(input.preisgefühlt).replace(/[^\d]/g, '')) || 200
-    return {
-      comfort_price: Math.round(base),
-      growth_price: Math.round(base * 1.4),
-      authority_price: Math.round(base * 2),
-      reasoning: {
-        comfort: 'Bauchgefühl + aktuelle Prooflage.',
-        growth: 'Stretch-Level für Wachstum & Positionierung.',
-        authority: 'Top-Tier für hohe Proof- & Nachfrage-Signale.'
-      },
-      revenue_simulation: { note: 'Mock: Grundlage ist der gefühlte Preis.' }
-    }
-  }
-
+  // Robust: erst Text lesen (falls HTML/Fehlerseite), dann sicher parsen
   const res = await fetch(proxy, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   })
+
+  const text = await res.text()
   if (!res.ok) {
-    const t = await res.text()
-    throw new Error('Proxy-Fehler: ' + t)
+    throw new Error(`Proxy HTTP ${res.status}: ${text.slice(0, 200)}`)
   }
-  const data = await res.json()
-  return data
+
+  // Zwei mögliche Serverantworten:
+  // A) Dein Proxy gibt direkt das JSON zurück, das wir brauchen
+  // B) Der Proxy gibt die rohe OpenAI-Antwort zurück (choices[0].message.content] als String)
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error(`Proxy lieferte kein JSON: ${text.slice(0, 200)}`)
+  }
+
+  // B) OpenAI-Format → Inhalt extrahieren und erneut parsen
+  const maybeContent = parsed?.choices?.[0]?.message?.content
+  if (typeof maybeContent === 'string') {
+    try {
+      return JSON.parse(maybeContent)
+    } catch {
+      throw new Error(
+        `Content nicht JSON. Server-Antwort: ${maybeContent.slice(0, 200)}`
+      )
+    }
+  }
+
+  // A) Direktes JSON mit den Feldern
+  if (
+    typeof parsed?.comfort_price !== 'undefined' &&
+    typeof parsed?.growth_price !== 'undefined' &&
+    typeof parsed?.authority_price !== 'undefined'
+  ) {
+    return parsed
+  }
+
+  // Falls das Format gar nicht passt → harter, klarer Fehler
+  throw new Error(
+    'Unerwartetes Proxy-Format. Erwarte direktes JSON oder OpenAI choices[].message.content.'
+  )
+}
+
+function mockFromBase(base) {
+  return {
+    comfort_price: Math.round(base),
+    growth_price: Math.round(base * 1.4),
+    authority_price: Math.round(base * 2),
+    reasoning: {
+      comfort: 'Bauchgefühl + aktuelle Prooflage.',
+      growth: 'Stretch-Level für Wachstum & Positionierung.',
+      authority: 'Top-Tier für hohe Proof- & Nachfrage-Signale.'
+    },
+    revenue_simulation: { note: 'Mock: Grundlage ist der gefühlte Preis.' }
+  }
 }
 
 const SYSTEM_PROMPT = `
