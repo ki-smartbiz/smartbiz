@@ -1,0 +1,13 @@
+# public/.htaccess
+Options -MultiViews
+
+# Single-Page-App Fallback
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
+
+# (Optional) etwas Kompression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
