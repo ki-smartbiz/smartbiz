@@ -64,7 +64,7 @@ jobs:
           port: 21
           security: loose
           local-dir: dist/     # << nur dist deployen
-          server-dir: /        # << Webroot, KEIN Unterordner
+          server-dir: /ai.ki-smartbiz.de/app/       # << Webroot, KEIN Unterordner
           dangerous-clean-slate: true
           log-level: verbose
           state-name: .ftp-deploy-sync-state.json
