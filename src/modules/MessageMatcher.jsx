@@ -14,22 +14,17 @@ export default function MessageMatcher({ onBack }) {
     setError(''); setLoading(true)
 
     try {
-      // 1) Session/User
       const { data: u } = await supabase.auth.getUser()
       const uid = u?.user?.id
       if (!uid) throw new Error('Keine Session – bitte neu einloggen.')
 
-      // 2) Proxy call
       const out = await callMessageMatcherViaProxy({ text: input })
 
-      // 3) Analyse speichern
       const payload = { user_id: uid, type: 'messagematcher', input: { text: input }, output: out }
       const { error: dbErr } = await supabase.from('analyses').insert(payload)
       if (dbErr) throw dbErr
 
-      // 4) Voice Memory persistieren (upsert-ähnlich)
       await upsertVoiceProfile(uid, out)
-
       setResult(out)
     } catch (err) {
       console.error(err)
@@ -61,7 +56,7 @@ export default function MessageMatcher({ onBack }) {
             />
           </label>
 
-          {error && <div style={{ color: '#b91c1c' }}>{error}</div>}
+          {error && <div style={{ color: '#b91c1c', whiteSpace:'pre-wrap' }}>{error}</div>}
 
           <button disabled={loading || !input.trim()} style={{ padding: '10px 14px', borderRadius: 8, border: '1px solid #111' }}>
             {loading ? 'Analysiere…' : 'Analysieren'}
@@ -138,7 +133,7 @@ function fmtPct(v) {
   return `${Math.round(n * 100)}%`
 }
 
-// --- DB helper: upsert voice_profiles (ohne unique(user_id) – daher select->insert/update) ---
+// --- DB helper: upsert voice_profiles ---
 async function upsertVoiceProfile(userId, out) {
   const { data: existing, error: selErr } = await supabase
     .from('voice_profiles')
@@ -166,20 +161,12 @@ async function upsertVoiceProfile(userId, out) {
   }
 }
 
-// --- Proxy call (mit lokalem Fallback wie bei PriceFinder) ---
+// --- Proxy call (robust, ohne .env) ---
 async function callMessageMatcherViaProxy(payload) {
-  const proxy = import.meta.env.VITE_PROXY_URL
-  const body = {
-    model: 'gpt-4o-mini',
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: JSON.stringify(payload) }
-    ]
-  }
+  const proxy = (PROXY_URL || '').trim()
 
+  // Fallback für Offline/ohne Proxy
   if (!proxy) {
-    // Fallback: simple Heuristik, damit du lokal weiterbauen kannst
     const text = (payload.text || '').toLowerCase()
     const emo = text.includes('feel') || text.includes('emotion') ? 0.6 : 0.4
     return {
@@ -196,16 +183,39 @@ async function callMessageMatcherViaProxy(payload) {
     }
   }
 
+  const body = {
+    model: 'gpt-4o-mini',
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: JSON.stringify(payload) }
+    ]
+  }
+
   const res = await fetch(proxy, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   })
-  if (!res.ok) {
-    const t = await res.text()
-    throw new Error('Proxy-Fehler: ' + t)
+
+  const text = await res.text()
+  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}: ${text.slice(0, 300)}`)
+
+  let parsed
+  try { parsed = JSON.parse(text) }
+  catch { throw new Error(`Proxy lieferte kein JSON: ${text.slice(0, 300)}`) }
+
+  // OpenAI-Response?
+  const content = parsed?.choices?.[0]?.message?.content
+  if (typeof content === 'string') {
+    try { return JSON.parse(content) }
+    catch { throw new Error(`Content nicht JSON: ${content.slice(0, 300)}`) }
   }
-  return await res.json()
+
+  // Direktes JSON?
+  if (parsed && (parsed.core_message || parsed.tone || parsed.buyer_scores || parsed.hooks)) return parsed
+
+  throw new Error('Unerwartetes Proxy-Format')
 }
 
 const SYSTEM_PROMPT = `
@@ -219,11 +229,11 @@ Du bist MessageMatcher AI. Antworte ausschließlich als JSON in dieser Form:
   },
   "differentiation": string,
   "buyer_scores": {
-    "emotional": number,  // 0..1
-    "rational": number,   // 0..1
-    "prestige": number    // 0..1
+    "emotional": number,
+    "rational": number,
+    "prestige": number
   },
-  "hooks": string[]       // 3-5 kurze, präzise Hooks
+  "hooks": string[]
 }
 Analyse den gelieferten Text (Bio/Salespage/Website-Auszug) im DACH-Coaching/Consulting-Kontext.
 Kein Fluff. Klar, verkaufspsychologisch, präzise. Summiere buyer_scores auf ~1. Kein Text außerhalb des JSON.
