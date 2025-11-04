@@ -1,179 +1,342 @@
 // src/App.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "./lib/supabaseClient";
 
-// Supabase optional einbinden – wenn die ENV fehlt, crashen wir nicht
-let supabase = null;
-try {
-  // nur laden, wenn die Datei existiert
-  // (falls du sie noch nicht hast, lässt sich das hier gefahrlos überspringen)
-  // eslint-disable-next-line import/no-unresolved
-  supabase = (await import("./lib/supabaseClient")).supabase;
-} catch (_) {}
+// Module (platzhalter oder deine echten Implementierungen)
+import PriceFinder from "./modules/PriceFinder";
+import MessageMatcher from "./modules/MessageMatcher";
+import ContentFlow from "./modules/ContentFlow";
 
+// Optional: Admin-Seite (Stub)
+import Admin from "./pages/Admin";
+
+/* ---------- kleine UI-Primitives ---------- */
 const theme = {
-  bg: "bg-[#0b0b0b]",
-  text: "text-neutral-100",
   gold: "#d1a45f",
+  goldHover: "#c2924d",
 };
 
-function Button({ children, onClick, variant = "outline" }) {
-  const cls =
+function Button({ children, onClick, variant = "outline", className = "", type = "button" }) {
+  const vars = { "--gold": theme.gold, "--goldHover": theme.goldHover };
+  const base =
     variant === "solid"
-      ? "bg-[#d1a45f] text-black hover:brightness-95"
-      : "border border-[#d1a45f] text-[#d1a45f] hover:bg-[#d1a45f] hover:text-black";
+      ? "bg-[var(--gold)] text-black hover:bg-[var(--goldHover)]"
+      : "border border-[var(--gold)] text-[var(--gold)] hover:bg-[var(--gold)] hover:text-black";
   return (
     <button
+      type={type}
       onClick={onClick}
-      className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${cls}`}
+      style={vars}
+      className={`rounded-2xl px-4 py-2 text-sm font-semibold transition-colors ${base} ${className}`}
     >
       {children}
     </button>
   );
 }
 
-export default function App() {
-  const [view, setView] = useState("home"); // 'home' | 'pricefinder' | 'messagematcher' | 'contentflow'
-  const [session, setSession] = useState(null);
+function Card({ title, subtitle, children, className = "" }) {
+  return (
+    <div className={`rounded-2xl p-6 bg-[#141414] border border-[#2a2a2a] ${className}`}>
+      {(title || subtitle) && (
+        <div className="mb-3">
+          {title && <div className="text-sm font-semibold" style={{ color: theme.gold }}>{title}</div>}
+          {subtitle && <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
 
-  // Session rudimentär verwalten (funktioniert auch ohne Supabase)
-  useEffect(() => {
-    let unsub;
-    (async () => {
-      if (!supabase) return;
-      const { data } = await supabase.auth.getSession();
-      setSession(data?.session ?? null);
-      const sub = supabase.auth.onAuthStateChange((_e, s) => setSession(s ?? null));
-      unsub = sub?.subscription?.unsubscribe;
-    })();
-    return () => unsub?.();
-  }, []);
+function Crumb({ title }) {
+  return (
+    <div className="flex items-center gap-2 text-sm text-neutral-400">
+      <span>Home</span>
+      <span className="text-neutral-600">/</span>
+      <span style={{ color: theme.gold }}>{title}</span>
+    </div>
+  );
+}
 
-  const logout = async () => {
+function TextField({ label, type = "text", value, onChange, autoComplete, placeholder }) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-sm text-neutral-300">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        className="rounded-md bg-[#0f0f0f] border border-[#2a2a2a] px-3 py-2 text-neutral-200 focus:outline-none focus:border-[#d1a45f]"
+      />
+    </label>
+  );
+}
+
+/* ---------- Auth Views ---------- */
+function LoginView({ onOK, onSwitch }) {
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr("");
     try {
-      if (supabase) await supabase.auth.signOut();
-    } catch (e) {
-      console.warn("logout warn:", e?.message);
-    } finally {
-      setSession(null);
-      setView("home");
+      const { error } = await supabase.auth.signInWithPassword({
+        email: (email || "").trim().toLowerCase(),
+        password: pw,
+      });
+      if (error) throw error;
+      onOK?.();
+    } catch (e2) {
+      setErr(e2?.message || "Login fehlgeschlagen.");
     }
   };
 
+  return (
+    <section className="max-w-md mx-auto">
+      <Card title="Login" subtitle="Willkommen zurück">
+        <form className="grid gap-3" onSubmit={submit}>
+          <TextField label="E-Mail" value={email} onChange={setEmail} autoComplete="username" />
+          <TextField label="Passwort" type="password" value={pw} onChange={setPw} autoComplete="current-password" />
+          {err ? <div className="text-rose-400 text-sm">{err}</div> : null}
+          <div className="flex gap-2">
+            <Button variant="solid" type="submit">Einloggen</Button>
+            <Button onClick={onSwitch}>Registrieren</Button>
+          </div>
+        </form>
+      </Card>
+    </section>
+  );
+}
+
+function RegisterView({ onOK, onSwitch }) {
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr("");
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: (email || "").trim().toLowerCase(),
+        password: pw,
+      });
+      if (error) throw error;
+      onOK?.(); // ggf. Mail bestätigen abhängig von Project Settings
+    } catch (e2) {
+      setErr(e2?.message || "Registrierung fehlgeschlagen.");
+    }
+  };
+
+  return (
+    <section className="max-w-md mx-auto">
+      <Card title="Registrieren" subtitle="Starte los">
+        <form className="grid gap-3" onSubmit={submit}>
+          <TextField label="E-Mail" value={email} onChange={setEmail} autoComplete="username" />
+          <TextField label="Passwort" type="password" value={pw} onChange={setPw} autoComplete="new-password" />
+          {err ? <div className="text-rose-400 text-sm">{err}</div> : null}
+          <div className="flex gap-2">
+            <Button variant="solid" type="submit">Konto anlegen</Button>
+            <Button onClick={onSwitch}>Zum Login</Button>
+          </div>
+        </form>
+      </Card>
+    </section>
+  );
+}
+
+/* ---------- Konto (minimal) ---------- */
+function AccountView({ session }) {
+  const mail = session?.user?.email || "—";
+  return (
+    <section className="max-w-xl mx-auto">
+      <Card title="Konto" subtitle="Deine Session">
+        <div className="text-sm text-neutral-300">E-Mail: <span className="text-neutral-100">{mail}</span></div>
+      </Card>
+    </section>
+  );
+}
+
+/* ---------- Haupt-App ---------- */
+export default function App() {
+  // Routing-State
+  const [view, setView] = useState("home"); // "home" | "pricefinder" | "messagematcher" | "contentflow" | "login" | "register" | "account" | "admin"
+  // Auth/Profil
+  const [session, setSession] = useState(null);
+  const [role, setRole] = useState(null);
+
+  // Session holen & Listener
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!active) return;
+      setSession(data.session ?? null);
+    })();
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess ?? null));
+    return () => sub?.subscription?.unsubscribe?.();
+  }, []);
+
+  // Rolle (einfaches Gate: profiles.role)
+  useEffect(() => {
+    let stop = false;
+    (async () => {
+      if (!session?.user?.id) {
+        setRole(null);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+      if (!stop) setRole(error ? null : data?.role ?? null);
+    })();
+    return () => { stop = true; };
+  }, [session]);
+
+  const greeting = useMemo(() => {
+    const email = session?.user?.email || "";
+    const nick = email.split("@")[0] || "there";
+    return `Hey ${nick}, let’s move some mountains today ⚡`;
+  }, [session]);
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setView("login");
+  };
+
+  /* ---------- Top-Bar ---------- */
   const TopBar = () => (
-    <header className="mb-8">
-      <h1
-        className="text-4xl md:text-5xl font-extrabold tracking-tight"
-        style={{ color: theme.gold }}
-      >
+    <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
+      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left" style={{ color: theme.gold }}>
         SmartBiz Suite
       </h1>
-
       <nav className="mt-3 flex flex-wrap items-center gap-2">
         <Button onClick={() => setView("home")}>Home</Button>
-        <Button onClick={() => setView("account")}>Konto</Button>
-        <Button variant="solid" onClick={logout}>Logout</Button>
+        {session ? (
+          <>
+            <Button onClick={() => setView("account")}>Konto</Button>
+            {role === "admin" && <Button onClick={() => setView("admin")}>Admin</Button>}
+            <Button variant="solid" onClick={logout}>Logout</Button>
+          </>
+        ) : (
+          <Button variant="solid" onClick={() => setView("login")}>Login</Button>
+        )}
       </nav>
     </header>
   );
 
-  const Crumb = ({ title }) => (
-    <div className="mb-4 flex items-center gap-2 text-sm">
-      <span className="opacity-70">Home</span>
-      <span className="opacity-50">/</span>
-      <span style={{ color: theme.gold }}>{title}</span>
-    </div>
-  );
-
   return (
-    <div className={`min-h-screen ${theme.bg} ${theme.text}`}>
-      {/* HARTES ZENTRIEREN – dieser Wrapper ist entscheidend */}
+    <div className="min-h-screen bg-[#0b0b0b] text-neutral-100">
+      {/* ZENTRIERUNG über .app-shell (kommt aus deiner index.css) */}
       <div className="app-shell">
         <TopBar />
 
+        {/* AUTH VIEWS */}
+        {!session && view === "login" && (
+          <LoginView onOK={() => setView("home")} onSwitch={() => setView("register")} />
+        )}
+        {!session && view === "register" && (
+          <RegisterView onOK={() => setView("login")} onSwitch={() => setView("login")} />
+        )}
+
+        {/* HOME (nur wenn eingeloggt? -> hier offen für alle) */}
         {view === "home" && (
           <main className="space-y-10">
             <section className="max-w-3xl mx-auto">
-              <div className="rounded-2xl p-6 bg-[#141414] border border-[#2a2a2a]">
-                <p className="text-lg">
-                  Hey {session ? "du bist eingeloggt." : "thomas"}, let’s move some mountains today ⚡️
-                </p>
-              </div>
+              <Card>
+                <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
+              </Card>
             </section>
 
             <section className="max-w-7xl mx-auto">
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="flex flex-wrap justify-center gap-8">
                 <Card
                   title="PriceFinder"
                   subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
-                  onOpen={() => setView("pricefinder")}
-                />
+                  className="w-[22rem]"
+                >
+                  <p className="text-sm text-neutral-400">Klarer, sauberer Flow.</p>
+                  <div className="mt-6">
+                    <Button variant="solid" className="w-full" onClick={() => setView("pricefinder")}>
+                      Öffnen
+                    </Button>
+                  </div>
+                </Card>
+
                 <Card
                   title="MessageMatcher"
                   subtitle="Messaging-Map aus Bio/Website"
-                  onOpen={() => setView("messagematcher")}
-                />
+                  className="w-[22rem]"
+                >
+                  <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
+                  <div className="mt-6">
+                    <Button variant="solid" className="w-full" onClick={() => setView("messagematcher")}>
+                      Öffnen
+                    </Button>
+                  </div>
+                </Card>
+
                 <Card
                   title="ContentFlow"
                   subtitle="Hooks, Stories, Captions"
-                  onOpen={() => setView("contentflow")}
-                />
+                  className="w-[22rem]"
+                >
+                  <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
+                  <div className="mt-6">
+                    <Button variant="solid" className="w-full" onClick={() => setView("contentflow")}>
+                      Öffnen
+                    </Button>
+                  </div>
+                </Card>
               </div>
             </section>
           </main>
         )}
 
+        {/* MODULE */}
         {view === "pricefinder" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="pricefinder" />
-            <Button onClick={() => setView("home")}>← Zurück</Button>
-            <div className="mt-6 text-xl">
-              Hier würde jetzt das Modul <b>pricefinder</b> geladen.
-            </div>
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><PriceFinder /></div>
           </section>
         )}
 
         {view === "messagematcher" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="messagematcher" />
-            <Button onClick={() => setView("home")}>← Zurück</Button>
-            <div className="mt-6 text-xl">
-              Hier würde jetzt das Modul <b>messagematcher</b> geladen.
-            </div>
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><MessageMatcher /></div>
           </section>
         )}
 
         {view === "contentflow" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="contentflow" />
-            <Button onClick={() => setView("home")}>← Zurück</Button>
-            <div className="mt-6 text-xl">
-              Hier würde jetzt das Modul <b>contentflow</b> geladen.
-            </div>
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><ContentFlow /></div>
           </section>
         )}
 
-        {view === "account" && (
+        {/* KONTO / ADMIN */}
+        {session && view === "account" && (
+          <AccountView session={session} />
+        )}
+
+        {session && role === "admin" && view === "admin" && (
           <section className="max-w-5xl mx-auto">
-            <Crumb title="account" />
-            <Button onClick={() => setView("home")}>← Zurück</Button>
-            <div className="mt-6 text-xl">Account-Bereich (Stub).</div>
+            <Crumb title="admin" />
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><Admin /></div>
           </section>
         )}
       </div>
-    </div>
-  );
-}
-
-function Card({ title, subtitle, onOpen }) {
-  return (
-    <div className="rounded-2xl p-6 bg-[#141414] border border-[#2a2a2a] hover:border-[#3a3a3a] transition">
-      <div className="mb-3">
-        <div className="text-sm font-semibold" style={{ color: "#d1a45f" }}>
-          {title}
-        </div>
-        <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>
-      </div>
-      <Button variant="solid" onClick={onOpen}>Öffnen</Button>
     </div>
   );
 }
