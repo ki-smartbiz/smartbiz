@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
+const PROXY_URL = 'https://ai.ki-smartbiz.de/app/proxy.php'
+
 // Module (deine echten Implementierungen)
 import PriceFinder from "../modules/PriceFinder";
 import MessageMatcher from "../modules/MessageMatcher";
