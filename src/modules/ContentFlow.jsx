@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-
 const PROXY_URL = 'https://ai.ki-smartbiz.de/app/proxy.php'
 
 export default function ContentFlow({ onBack }) {
@@ -36,7 +35,7 @@ export default function ContentFlow({ onBack }) {
       setResult(out)
     } catch (err) {
       console.error(err)
-      setError(err.message)
+      setError(err.message || 'Fehler bei der Generierung')
     } finally {
       setLoading(false)
     }
@@ -60,7 +59,7 @@ export default function ContentFlow({ onBack }) {
             <span>Ziel</span>
             <input value={goal} onChange={e => setGoal(e.target.value)} placeholder="z. B. mehr Sichtbarkeit" />
           </label>
-          {error && <div style={{ color: '#b91c1c' }}>{error}</div>}
+          {error && <div style={{ color: '#b91c1c', whiteSpace:'pre-wrap' }}>{error}</div>}
           <button disabled={loading || !topic.trim()} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #111' }}>
             {loading ? 'Generiere…' : 'Content erstellen'}
           </button>
@@ -76,12 +75,12 @@ function Output({ result, onBackToForm }) {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <Card title="Hooks" body={
-        <ol>{result.hooks?.map((h,i)=><li key={i}>{h}</li>)}</ol>
+        <ol>{(result.hooks || []).map((h,i)=><li key={i}>{h}</li>)}</ol>
       }/>
       <Card title="Story-Outline" body={result.story_outline || '–'}/>
       <Card title="Caption" body={result.caption || '–'}/>
       <Card title="CTA" body={result.cta || '–'}/>
-      <Card title="Hashtags" body={(result.hashtags||[]).join(' ')}/>
+      <Card title="Hashtags" body={(result.hashtags || []).join(' ')}/>
       <button onClick={onBackToForm} style={{ width:200, padding:'8px 12px', borderRadius:8, border:'1px solid #111' }}>Neue Serie</button>
     </div>
   )
@@ -97,16 +96,9 @@ function Card({ title, body }) {
 }
 
 async function callContentFlowViaProxy(payload) {
-  const proxy = import.meta.env.VITE_PROXY_URL
-  const body = {
-    model: 'gpt-4o-mini',
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: JSON.stringify(payload) }
-    ]
-  }
+  const proxy = (PROXY_URL || '').trim()
 
+  // Fallback ohne Proxy
   if (!proxy) {
     return {
       hooks: ['Mock Hook 1','Mock Hook 2','Mock Hook 3'],
@@ -117,17 +109,48 @@ async function callContentFlowViaProxy(payload) {
     }
   }
 
+  const body = {
+    model: 'gpt-4o-mini',
+    response_format: { type: 'json_object' },
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: JSON.stringify(payload) }
+    ]
+  }
+
   const res = await fetch(proxy, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   })
-  if (!res.ok) throw new Error(await res.text())
-  return await res.json()
+
+  const text = await res.text()
+  if (!res.ok) throw new Error(`Proxy HTTP ${res.status}: ${text.slice(0, 300)}`)
+
+  // Proxy kann 2 Formate liefern:
+  // A) Direkt unser JSON
+  // B) OpenAI-Response mit choices[0].message.content (als JSON-String)
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error(`Proxy lieferte kein JSON: ${text.slice(0, 300)}`)
+  }
+
+  const content = parsed?.choices?.[0]?.message?.content
+  if (typeof content === 'string') {
+    try { return JSON.parse(content) } 
+    catch { throw new Error(`Content nicht JSON: ${content.slice(0, 300)}`) }
+  }
+
+  // Direktes JSON?
+  if (parsed && (parsed.hooks || parsed.caption || parsed.story_outline)) return parsed
+
+  throw new Error('Unerwartetes Proxy-Format')
 }
 
 const SYSTEM_PROMPT = `
-Du bist ContentFlow AI. Antworte **ausschließlich** als JSON in dieser Form:
+Du bist ContentFlow AI. Antworte ausschließlich als JSON in dieser Form:
 {
   "hooks": string[],
   "story_outline": string,
@@ -135,7 +158,7 @@ Du bist ContentFlow AI. Antworte **ausschließlich** als JSON in dieser Form:
   "cta": string,
   "hashtags": string[]
 }
-Generiere 3-5 emotionale, psychologisch fundierte Hooks,
+Generiere 3–5 emotionale, psychologisch fundierte Hooks,
 eine kurze Story-Outline, eine Caption, eine CTA und passende Hashtags
 für das Thema und Ziel der Nutzerin im Online-Business-Kontext (Coaching/Consulting).
 Kein Fluff, kein Marketing-Bullshit – klar, verkaufsstark, relevant.
