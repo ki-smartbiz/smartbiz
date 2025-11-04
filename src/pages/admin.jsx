@@ -8,7 +8,7 @@ import MessageMatcher from "../modules/MessageMatcher";
 import ContentFlow from "../modules/ContentFlow";
 
 // Admin-Datei ist klein geschrieben:
-import Admin from "./pages/admin";
+import Admin from "../pages/admin";
 
 /* ============ UI Primitives ============ */
 const theme = { gold: "#d1a45f", goldHover: "#c2924d" };
