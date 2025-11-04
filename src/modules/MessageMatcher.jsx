@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
+const PROXY_URL = 'https://ai.ki-smartbiz.de/app/proxy.php'
+
 export default function MessageMatcher({ onBack }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
