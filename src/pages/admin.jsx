@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 // Module (deine echten Implementierungen)
-import PriceFinder from "./modules/PriceFinder";
-import MessageMatcher from "./modules/MessageMatcher";
-import ContentFlow from "./modules/ContentFlow";
+import PriceFinder from "../modules/PriceFinder";
+import MessageMatcher from "../modules/MessageMatcher";
+import ContentFlow from "../modules/ContentFlow";
 
 // Admin-Datei ist klein geschrieben:
 import Admin from "./pages/admin";
