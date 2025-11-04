@@ -8,7 +8,7 @@ import MessageMatcher from "./modules/MessageMatcher";
 import ContentFlow from "./modules/ContentFlow";
 
 // Optional: Admin-Seite (Stub)
-import Admin from "./pages/Admin";
+import Admin from "./pages/admin";
 
 /* ---------- kleine UI-Primitives ---------- */
 const theme = {
