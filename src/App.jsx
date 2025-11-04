@@ -1,21 +1,19 @@
-// src/App.jsx1
+// src/App.jsx
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
-// Module (platzhalter oder deine echten Implementierungen)
+// Module
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
 import ContentFlow from "./modules/ContentFlow";
 
-// Optional: Admin-Seite (Stub)
+// Optional: Admin-Seite
 import Admin from "./pages/admin";
 
-/* ---------- kleine UI-Primitives ---------- */
-const theme = {
-  gold: "#d1a45f",
-  goldHover: "#c2924d",
-};
+/* ---------- Theme ---------- */
+const theme = { gold: "#d1a45f", goldHover: "#c2924d" };
 
+/* ---------- UI-Primitives ---------- */
 function Button({ children, onClick, variant = "outline", className = "", type = "button" }) {
   const vars = { "--gold": theme.gold, "--goldHover": theme.goldHover };
   const base =
@@ -74,6 +72,56 @@ function TextField({ label, type = "text", value, onChange, autoComplete, placeh
   );
 }
 
+/* ---------- Home: Feature Cards + Icons ---------- */
+function FeatureCard({ title, subtitle, onOpen, Icon }) {
+  return (
+    <div className="w-[22rem] rounded-2xl p-6 bg-[#141414] border border-[#2a2a2a] hover:border-[#3a3a3a] transition-colors hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(0,0,0,0.35)] duration-200">
+      <div className="flex items-start gap-4">
+        <div className="shrink-0"><Icon /></div>
+        <div>
+          <div className="text-lg font-semibold" style={{ color: theme.gold }}>{title}</div>
+          <div className="text-sm text-neutral-400 mt-1">{subtitle}</div>
+        </div>
+      </div>
+      <div className="mt-6">
+        <Button variant="solid" className="w-full" onClick={onOpen}>Öffnen</Button>
+      </div>
+    </div>
+  );
+}
+
+function IconPrice() {
+  return (
+    <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-900/30 to-amber-500/10 border border-[#2a2a2a]">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-amber-300">
+        <path d="M20 13L12 21L3 12L11 4L20 13Z" stroke="currentColor" strokeWidth="1.6" />
+        <path d="M8.5 11.5c.828 0 1.5-.672 1.5-1.5S9.328 8.5 8.5 8.5 7 9.172 7 10s.672 1.5 1.5 1.5Z" fill="currentColor"/>
+      </svg>
+    </div>
+  );
+}
+function IconMessage() {
+  return (
+    <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-900/30 to-sky-500/10 border border-[#2a2a2a]">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-sky-300">
+        <path d="M21 12c0 3.866-3.806 7-8.5 7-.94 0-1.848-.118-2.7-.339L4 20l1.53-3.061C4.584 15.72 4 13.93 4 12 4 8.134 7.806 5 12.5 5S21 8.134 21 12Z" stroke="currentColor" strokeWidth="1.6"/>
+        <path d="M8 12h5M8 9.5h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      </svg>
+    </div>
+  );
+}
+function IconFlow() {
+  return (
+    <div className="p-3 rounded-xl bg-gradient-to-br from-violet-900/30 to-fuchsia-500/10 border border-[#2a2a2a]">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-fuchsia-300">
+        <path d="M5 7h7a4 4 0 0 1 4 4v0a4 4 0 0 0 4 4H19" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+        <rect x="3" y="5" width="6" height="4" rx="1.2" stroke="currentColor" strokeWidth="1.6"/>
+        <rect x="15" y="15" width="6" height="4" rx="1.2" stroke="currentColor" strokeWidth="1.6"/>
+      </svg>
+    </div>
+  );
+}
+
 /* ---------- Auth Views ---------- */
 function LoginView({ onOK, onSwitch }) {
   const [email, setEmail] = useState("");
@@ -126,7 +174,7 @@ function RegisterView({ onOK, onSwitch }) {
         password: pw,
       });
       if (error) throw error;
-      onOK?.(); // ggf. Mail bestätigen abhängig von Project Settings
+      onOK?.();
     } catch (e2) {
       setErr(e2?.message || "Registrierung fehlgeschlagen.");
     }
@@ -149,7 +197,7 @@ function RegisterView({ onOK, onSwitch }) {
   );
 }
 
-/* ---------- Konto (minimal) ---------- */
+/* ---------- Konto ---------- */
 function AccountView({ session }) {
   const mail = session?.user?.email || "—";
   return (
@@ -163,32 +211,26 @@ function AccountView({ session }) {
 
 /* ---------- Haupt-App ---------- */
 export default function App() {
-  // Routing-State
   const [view, setView] = useState("home"); // "home" | "pricefinder" | "messagematcher" | "contentflow" | "login" | "register" | "account" | "admin"
-  // Auth/Profil
   const [session, setSession] = useState(null);
   const [role, setRole] = useState(null);
 
-  // Session holen & Listener
+  // Session + Listener
   useEffect(() => {
     let active = true;
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (!active) return;
-      setSession(data.session ?? null);
+      if (active) setSession(data.session ?? null);
     })();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess ?? null));
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
-  // Rolle (einfaches Gate: profiles.role)
+  // Rolle
   useEffect(() => {
     let stop = false;
     (async () => {
-      if (!session?.user?.id) {
-        setRole(null);
-        return;
-      }
+      if (!session?.user?.id) { setRole(null); return; }
       const { data, error } = await supabase
         .from("profiles")
         .select("role")
@@ -210,7 +252,6 @@ export default function App() {
     setView("login");
   };
 
-  /* ---------- Top-Bar ---------- */
   const TopBar = () => (
     <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
       <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left" style={{ color: theme.gold }}>
@@ -233,11 +274,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0b0b0b] text-neutral-100">
-      {/* ZENTRIERUNG über .app-shell (kommt aus deiner index.css) */}
       <div className="app-shell">
         <TopBar />
 
-        {/* AUTH VIEWS */}
+        {/* AUTH */}
         {!session && view === "login" && (
           <LoginView onOK={() => setView("home")} onSwitch={() => setView("register")} />
         )}
@@ -245,7 +285,7 @@ export default function App() {
           <RegisterView onOK={() => setView("login")} onSwitch={() => setView("login")} />
         )}
 
-        {/* HOME (nur wenn eingeloggt? -> hier offen für alle) */}
+        {/* HOME – als Karten */}
         {view === "home" && (
           <main className="space-y-10">
             <section className="max-w-3xl mx-auto">
@@ -255,45 +295,25 @@ export default function App() {
             </section>
 
             <section className="max-w-7xl mx-auto">
-              <div className="flex flex-wrap justify-center gap-8">
-                <Card
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 place-items-center">
+                <FeatureCard
                   title="PriceFinder"
                   subtitle="Wohlfühl-, Wachstums- & Authority-Preis"
-                  className="w-[22rem]"
-                >
-                  <p className="text-sm text-neutral-400">Klarer, sauberer Flow.</p>
-                  <div className="mt-6">
-                    <Button variant="solid" className="w-full" onClick={() => setView("pricefinder")}>
-                      Öffnen
-                    </Button>
-                  </div>
-                </Card>
-
-                <Card
+                  onOpen={() => setView("pricefinder")}
+                  Icon={IconPrice}
+                />
+                <FeatureCard
                   title="MessageMatcher"
                   subtitle="Messaging-Map aus Bio/Website"
-                  className="w-[22rem]"
-                >
-                  <p className="text-sm text-neutral-400">Positionierung ohne Ratespiel.</p>
-                  <div className="mt-6">
-                    <Button variant="solid" className="w-full" onClick={() => setView("messagematcher")}>
-                      Öffnen
-                    </Button>
-                  </div>
-                </Card>
-
-                <Card
+                  onOpen={() => setView("messagematcher")}
+                  Icon={IconMessage}
+                />
+                <FeatureCard
                   title="ContentFlow"
                   subtitle="Hooks, Stories, Captions"
-                  className="w-[22rem]"
-                >
-                  <p className="text-sm text-neutral-400">Struktur rein, Output rauf.</p>
-                  <div className="mt-6">
-                    <Button variant="solid" className="w-full" onClick={() => setView("contentflow")}>
-                      Öffnen
-                    </Button>
-                  </div>
-                </Card>
+                  onOpen={() => setView("contentflow")}
+                  Icon={IconFlow}
+                />
               </div>
             </section>
           </main>
@@ -325,9 +345,7 @@ export default function App() {
         )}
 
         {/* KONTO / ADMIN */}
-        {session && view === "account" && (
-          <AccountView session={session} />
-        )}
+        {session && view === "account" && <AccountView session={session} />}
 
         {session && role === "admin" && view === "admin" && (
           <section className="max-w-5xl mx-auto">
