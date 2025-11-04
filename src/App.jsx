@@ -1,6 +1,6 @@
 // src/App.jsx
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "./lib/supabaseClient";
+import { supabase } from "../lib/supabaseClient";
 
 // Module (platzhalter oder deine echten Implementierungen)
 import PriceFinder from "./modules/PriceFinder";
