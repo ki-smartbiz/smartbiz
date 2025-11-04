@@ -8,6 +8,7 @@ on:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,6 +19,19 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Check required secrets
+        run: |
+          missing=""
+          [ -z "${{ secrets.VITE_SUPABASE_URL }}" ] && missing="${missing} VITE_SUPABASE_URL"
+          [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ] && missing="${missing} VITE_SUPABASE_ANON_KEY"
+          # VITE_PROXY_URL optional – nur checken, wenn du's brauchst
+          [ -z "${{ secrets.FTP_SERVER }}" ] && missing="${missing} FTP_SERVER"
+          [ -z "${{ secrets.FTP_USERNAME }}" ] && missing="${missing} FTP_USERNAME"
+          [ -z "${{ secrets.FTP_PASSWORD }}" ] && missing="${missing} FTP_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "❌ Fehlende Secrets:${missing}"; exit 1
+          fi
+
       - name: Create .env.production
         run: |
           cat > .env.production << 'EOF'
@@ -26,13 +40,19 @@ jobs:
           VITE_PROXY_URL=${{ secrets.VITE_PROXY_URL }}
           EOF
 
-      - name: Install deps
-        run: npm ci || npm i
+      - name: Install deps (CI)
+        run: npm ci
 
-      - name: Build
+      - name: Build (Vite)
         env:
           NODE_ENV: production
         run: npm run build
+
+      - name: Upload artifact (optional debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
 
       - name: Deploy via FTP (FTPS explicit)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
@@ -43,8 +63,15 @@ jobs:
           protocol: ftps
           port: 21
           security: loose
-          local-dir: dist/                # nur der build-Output
-          server-dir: /  # z. B. /ai.ki-smartbiz.de/
-          dangerous-clean-slate: true     # räumt das Zielverzeichnis auf
+          local-dir: dist/     # << nur dist deployen
+          server-dir: /        # << Webroot, KEIN Unterordner
+          dangerous-clean-slate: true
           log-level: verbose
           state-name: .ftp-deploy-sync-state.json
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/node_modules/**
+            **/src/**
+            **/package*.json
+            **/vite.config.*
