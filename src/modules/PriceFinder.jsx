@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient'
  *  Beispiel: https://deine-domain.tld/proxy.php
  *  Kein .env, kein lokaler Build nötig.
  */
-const PROXY_URL = 'https://ai.ki-smartbiz.de/public_html/proxy.php'
+const PROXY_URL = 'https://ai.ki-smartbiz.de/app/proxy.php'
 
 export default function PriceFinder({ onBack }) {
   const [form, setForm] = useState({
