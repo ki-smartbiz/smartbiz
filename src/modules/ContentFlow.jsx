@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
+
+const PROXY_URL = 'https://ai.ki-smartbiz.de/app/proxy.php'
+
 export default function ContentFlow({ onBack }) {
   const [topic, setTopic] = useState('')
   const [goal, setGoal] = useState('')
