@@ -75,12 +75,23 @@ function TextField({ label, type = "text", value, onChange, autoComplete, placeh
 /* ---------- Home: Feature Cards + Icons ---------- */
 function FeatureCard({ title, subtitle, onOpen, Icon }) {
   return (
-    <div className="w-[22rem] rounded-2xl p-6 bg-[#141414] border border-[#2a2a2a] hover:border-[#3a3a3a] transition-colors hover:-translate-y-0.5 hover:shadow-[0_10px_30px_rgba(0,0,0,0.35)] duration-200">
+    <div
+      className="
+        w-[22rem] rounded-2xl p-6
+        bg-[#121212]                                  /* dunkler als Page */
+        border border-[#3a3a3a]                      /* sichtbarer Rahmen */
+        ring-1 ring-black/20                         /* leichte Kante */
+        shadow-[0_4px_14px_rgba(0,0,0,0.35)]
+        hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(0,0,0,0.55)]
+        hover:border-[#4a4a4a] hover:ring-black/30
+        transition-all duration-200
+      "
+    >
       <div className="flex items-start gap-4">
         <div className="shrink-0"><Icon /></div>
         <div>
           <div className="text-lg font-semibold" style={{ color: theme.gold }}>{title}</div>
-          <div className="text-sm text-neutral-400 mt-1">{subtitle}</div>
+          <div className="text-sm text-neutral-300 mt-1">{subtitle}</div>
         </div>
       </div>
       <div className="mt-6">
@@ -89,6 +100,7 @@ function FeatureCard({ title, subtitle, onOpen, Icon }) {
     </div>
   );
 }
+
 
 function IconPrice() {
   return (
