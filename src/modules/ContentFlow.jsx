@@ -43,7 +43,6 @@ export default function ContentFlow({ onBack }) {
 
   return (
     <div style={{ maxWidth: 880, margin: '24px auto', padding: 16 }}>
-      <button onClick={onBack} style={{ marginBottom: 12 }}>← Zurück</button>
       <h1 style={{ fontWeight: 700, fontSize: 24, marginBottom: 8 }}>ContentFlow AI</h1>
       <p style={{ color: '#6b7280', marginBottom: 16 }}>
         Generiere psychologisch abgestimmte Content-Serien aus Thema + Ziel.
