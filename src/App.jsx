@@ -351,7 +351,7 @@ export default function App() {
           <section className="max-w-5xl mx-auto">
             <Crumb title="admin" />
             <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
-            <div className="mt-6"><Admin /></div>
+            <Admin onBack={() => setView("home")} />
           </section>
         )}
       </div>
