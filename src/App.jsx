@@ -2,13 +2,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
-// Module
+// Module (bestehend)
 import PriceFinder from "./modules/PriceFinder";
 import MessageMatcher from "./modules/MessageMatcher";
 import ContentFlow from "./modules/ContentFlow";
 
-// Optional: Admin-Seite
+// Optional: Admin-Seite (bestehend)
 import Admin from "./pages/admin";
+
+/* ==== NEU: Bewerbungstrainer – Seiten (MVP) ==== */
+import Upload from "./pages/Upload";
+import Persona from "./pages/Persona";
+import Interview from "./pages/Interview";
+import Report from "./pages/Report";
 
 /* ---------- Theme ---------- */
 const theme = { gold: "#d1a45f", goldHover: "#c2924d" };
@@ -90,8 +96,6 @@ function FeatureCard({ title, subtitle, onOpen, Icon }) {
   );
 }
 
-
-
 function IconPrice() {
   return (
     <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-900/30 to-amber-500/10 border border-[#2a2a2a]">
@@ -119,6 +123,18 @@ function IconFlow() {
         <path d="M5 7h7a4 4 0 0 1 4 4v0a4 4 0 0 0 4 4H19" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
         <rect x="3" y="5" width="6" height="4" rx="1.2" stroke="currentColor" strokeWidth="1.6"/>
         <rect x="15" y="15" width="6" height="4" rx="1.2" stroke="currentColor" strokeWidth="1.6"/>
+      </svg>
+    </div>
+  );
+}
+
+/* ==== NEU: Icon Bewerbungstrainer ==== */
+function IconTrainer() {
+  return (
+    <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-900/30 to-emerald-500/10 border border-[#2a2a2a]">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-emerald-300">
+        <path d="M5 8h14M5 12h10M5 16h7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+        <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="1.6"/>
       </svg>
     </div>
   );
@@ -213,9 +229,18 @@ function AccountView({ session }) {
 
 /* ---------- Haupt-App ---------- */
 export default function App() {
-  const [view, setView] = useState("home"); // "home" | "pricefinder" | "messagematcher" | "contentflow" | "login" | "register" | "account" | "admin"
+  const [view, setView] = useState("home"); 
+  // Bestehende Views bleiben unangetastet.
+  // NEU: Bewerbungstrainer-Views:
+  // "trainer_upload" | "trainer_persona" | "trainer_interview" | "trainer_report"
+
   const [session, setSession] = useState(null);
   const [role, setRole] = useState(null);
+
+  /* ==== NEU: Bewerbungstrainer State ==== */
+  const [jdId, setJdId] = useState(null);
+  const [cvId, setCvId] = useState(null);
+  const [interviewId, setInterviewId] = useState(null);
 
   // Session + Listener
   useEffect(() => {
@@ -274,12 +299,33 @@ export default function App() {
     </header>
   );
 
+  /* ==== NEU: Persona wählen → Interview anlegen ==== */
+  async function handlePickPersona(persona) {
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const userId = u?.user?.id;
+      if (!userId) { setView("login"); return; }
+
+      const { data, error } = await supabase
+        .from("interviews")
+        .insert({ user_id: userId, persona, jd_upload: jdId, cv_upload: cvId })
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      setInterviewId(data.id);
+      setView("trainer_interview");
+    } catch (e) {
+      alert(e.message || "Interview konnte nicht angelegt werden.");
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#0b0b0b] text-neutral-100">
       <div className="app-shell">
         <TopBar />
 
-        {/* AUTH */}
+        {/* AUTH (bestehend) */}
         {!session && view === "login" && (
           <LoginView onOK={() => setView("home")} onSwitch={() => setView("register")} />
         )}
@@ -287,7 +333,7 @@ export default function App() {
           <RegisterView onOK={() => setView("login")} onSwitch={() => setView("login")} />
         )}
 
-        {/* HOME – als Karten */}
+        {/* HOME – Karten (bestehende + NEU Bewerbungstrainer) */}
         {view === "home" && (
           <main className="space-y-10">
             <section className="max-w-3xl mx-auto">
@@ -316,12 +362,20 @@ export default function App() {
                   onOpen={() => setView("contentflow")}
                   Icon={IconFlow}
                 />
+
+                {/* ==== NEU: Bewerbungstrainer als vierte Karte ==== */}
+                <FeatureCard
+                  title="Bewerbungstrainer"
+                  subtitle="JD + CV hochladen, realistisch interviewt werden"
+                  onOpen={() => setView("trainer_upload")}
+                  Icon={IconTrainer}
+                />
               </div>
             </section>
           </main>
         )}
 
-        {/* MODULE */}
+        {/* MODULE (bestehend) */}
         {view === "pricefinder" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="pricefinder" />
@@ -346,7 +400,51 @@ export default function App() {
           </section>
         )}
 
-        {/* KONTO / ADMIN */}
+        {/* ==== NEU: Bewerbungstrainer Flow ==== */}
+        {session && view === "trainer_upload" && (
+          <section className="max-w-5xl mx-auto">
+            <Crumb title="bewerbungstrainer / upload" />
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6">
+              <Upload
+                onDone={({ jdId, cvId }) => { setJdId(jdId); setCvId(cvId); setView("trainer_persona"); }}
+              />
+            </div>
+          </section>
+        )}
+
+        {session && view === "trainer_persona" && (
+          <section className="max-w-5xl mx-auto">
+            <Crumb title="bewerbungstrainer / persona" />
+            <div className="mt-3"><Button onClick={() => setView("trainer_upload")}>← Zurück</Button></div>
+            <div className="mt-6">
+              <Persona onPick={handlePickPersona} />
+            </div>
+          </section>
+        )}
+
+        {session && view === "trainer_interview" && interviewId && (
+          <section className="max-w-5xl mx-auto">
+            <Crumb title="bewerbungstrainer / interview" />
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Abbrechen</Button></div>
+            <div className="mt-6">
+              <Interview interviewId={interviewId} />
+              <div className="mt-6">
+                <Button onClick={() => setView("trainer_report")}>Interview beenden → Report</Button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {session && view === "trainer_report" && interviewId && (
+          <section className="max-w-5xl mx-auto">
+            <Crumb title="bewerbungstrainer / report" />
+            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-6"><Report interviewId={interviewId} /></div>
+          </section>
+        )}
+
+        {/* KONTO / ADMIN (bestehend) */}
         {session && view === "account" && <AccountView session={session} />}
 
         {session && role === "admin" && view === "admin" && (
