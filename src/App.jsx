@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx1
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
