@@ -12,14 +12,24 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
   const [log, setLog] = useState([]); // {role:'interviewer'|'candidate', text}
   const [error, setError] = useState("");
 
-  // Speech-to-Text (Browser Web Speech API)
+  // ----- Speech-to-Text -----
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef(null);
 
-  // supabase Interview-ID
+  // ----- Text-to-Speech (Vorlesen) -----
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState(true); // automatisch neue Fragen vorlesen?
+
   const interviewIdRef = useRef(null);
 
-  // ---- Interview initialisieren: JD/CV laden -> initiale Fragen generieren ----
+  // ====== Init: Check TTS Support ======
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const supported = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    setVoiceSupported(supported);
+  }, []);
+
+  // ====== Interview initialisieren ======
   useEffect(() => {
     (async () => {
       setError("");
@@ -28,7 +38,7 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
         const uid = session?.user?.id;
         if (!uid) throw new Error("Keine Session");
 
-        // JD/CV Text aus uploads holen
+        // JD & CV holen
         const fetchTxt = async (id) => {
           const { data, error } = await supabase.from("uploads").select("*").eq("id", id).single();
           if (error) throw error;
@@ -37,7 +47,7 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
         const jdText = jdId ? await fetchTxt(jdId) : "";
         const cvText = cvId ? await fetchTxt(cvId) : "";
 
-        // Interview-Row anlegen (für Logging)
+        // Interviewzeile anlegen
         {
           const { data, error } = await supabase
             .from("interviews")
@@ -48,7 +58,7 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
           interviewIdRef.current = data.id;
         }
 
-        // Initiale Fragen generieren
+        // Fragen generieren
         const sys = buildSystemPrompt(persona);
         const user = JSON.stringify({
           instruction:
@@ -60,10 +70,9 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
 
         const qs = Array.isArray(out.questions) ? out.questions.filter(Boolean) : [];
         if (!qs.length) throw new Error("Konnte keine Fragen generieren.");
+
         setQuestions(qs);
         setLog((prev) => [...prev, { role: "interviewer", text: qs[0] }]);
-
-        // ersten Turn speichern
         await saveTurn({ role: "interviewer", text: qs[0] });
       } catch (e) {
         console.error(e);
@@ -75,7 +84,7 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- Turn speichern ----
+  // ====== Helper: Turn speichern ======
   async function saveTurn({ role, text }) {
     const iid = interviewIdRef.current;
     if (!iid) return;
@@ -90,17 +99,58 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
     }
   }
 
-  // ---- Antwort abschicken -> Follow-Up Frage erzeugen oder weiter zur nächsten Frage ----
+  // ====== Text-to-Speech: Vorlesen ======
+  function speak(text) {
+    if (!voiceSupported || !text || typeof window === "undefined") return;
+    try {
+      const synth = window.speechSynthesis;
+      if (!synth) return;
+      synth.cancel();
+
+      const u = new window.SpeechSynthesisUtterance(text);
+      u.lang = "de-DE";    // gern anpassen
+      u.rate = 1.0;
+      u.pitch = 1.0;
+
+      // optional je Persona leicht variieren
+      if (persona === "beast") {
+        u.rate = 1.1;
+        u.pitch = 0.9;
+      } else if (persona === "friendly") {
+        u.rate = 0.95;
+        u.pitch = 1.05;
+      }
+
+      synth.speak(u);
+    } catch (e) {
+      console.warn("TTS Fehler:", e);
+    }
+  }
+
+  // Immer wenn ein neuer Interviewer-Turn reinkommt → ggf. automatisch vorlesen
+  useEffect(() => {
+    if (!autoSpeak || !voiceSupported || !log.length) return;
+    const last = log[log.length - 1];
+    if (last.role === "interviewer") {
+      speak(last.text);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [log, autoSpeak, voiceSupported]);
+
+  const currentQuestion =
+    log.length && log[log.length - 1].role === "interviewer"
+      ? log[log.length - 1].text
+      : questions[step] || "";
+
+  // ====== Antwort abschicken ======
   async function submitAnswer() {
     if (!answer.trim()) return;
     const a = answer.trim();
     setAnswer("");
 
-    // Antwort loggen
     setLog((prev) => [...prev, { role: "candidate", text: a }]);
     await saveTurn({ role: "candidate", text: a });
 
-    // Follow-Up / nächste Frage
     const currQ = questions[step];
     const sys = buildSystemPrompt(persona);
     const user = JSON.stringify({
@@ -115,27 +165,26 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
       const out = await askAI({ system: sys, user, json: true });
 
       if (typeof out === "string" && out.toLowerCase() === "ok") {
-        // nächste initiale Frage
+        // nächste Frage
         if (step + 1 < questions.length) {
           const nextStep = step + 1;
           setStep(nextStep);
-          setLog((prev) => [...prev, { role: "interviewer", text: questions[nextStep] }]);
-          await saveTurn({ role: "interviewer", text: questions[nextStep] });
+          const nextQ = questions[nextStep];
+          setLog((prev) => [...prev, { role: "interviewer", text: nextQ }]);
+          await saveTurn({ role: "interviewer", text: nextQ });
         } else {
-          // Interview beenden: Summary erzeugen
           await finishInterview();
         }
       } else if (out && out.followup) {
-        // Follow-Up stellen
         setLog((prev) => [...prev, { role: "interviewer", text: out.followup }]);
         await saveTurn({ role: "interviewer", text: out.followup });
       } else {
-        // Fallback: weiter
         if (step + 1 < questions.length) {
           const nextStep = step + 1;
           setStep(nextStep);
-          setLog((prev) => [...prev, { role: "interviewer", text: questions[nextStep] }]);
-          await saveTurn({ role: "interviewer", text: questions[nextStep] });
+          const nextQ = questions[nextStep];
+          setLog((prev) => [...prev, { role: "interviewer", text: nextQ }]);
+          await saveTurn({ role: "interviewer", text: nextQ });
         } else {
           await finishInterview();
         }
@@ -146,6 +195,7 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
     }
   }
 
+  // ====== Interview beenden ======
   async function finishInterview() {
     try {
       const sys = buildSystemPrompt(persona);
@@ -157,7 +207,6 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
       });
       const out = await askAI({ system: sys, user, json: true });
 
-      // Interview abschließen
       const iid = interviewIdRef.current;
       if (iid) await supabase.from("interviews").update({ completed: true }).eq("id", iid);
 
@@ -168,13 +217,15 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
     }
   }
 
-  // ---- Speech-to-Text Setup ----
+  // ====== Speech-to-Text Setup ======
   function ensureRecognition() {
     if (recognitionRef.current) return recognitionRef.current;
+    if (typeof window === "undefined") return null;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return null;
+
     const rec = new SR();
-    rec.lang = "de-DE";         // anpassen
+    rec.lang = "de-DE";
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     rec.onresult = (e) => {
@@ -188,7 +239,10 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
 
   function startListening() {
     const rec = ensureRecognition();
-    if (!rec) { alert("Speech-to-Text wird von deinem Browser nicht unterstützt."); return; }
+    if (!rec) {
+      alert("Speech-to-Text wird von deinem Browser nicht unterstützt.");
+      return;
+    }
     setListening(true);
     rec.start();
   }
@@ -204,12 +258,36 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
 
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-4">
-      <h1 className="text-2xl font-bold">Interview ({persona})</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">Interview ({persona})</h1>
+        <button className="px-3 py-1.5 rounded border text-sm" onClick={onBack}>
+          ← Zurück
+        </button>
+      </div>
 
       {error && <div className="text-rose-400 text-sm">{error}</div>}
 
+      {/* Verlauf */}
       <div className="rounded border p-4 bg-[#0f0f0f] border-[#2a2a2a] space-y-2">
-        <div className="text-sm text-neutral-400">Verlauf</div>
+        <div className="flex items-center justify-between text-sm text-neutral-400">
+          <span>Verlauf</span>
+          {voiceSupported ? (
+            <label className="inline-flex items-center gap-1 cursor-pointer text-xs">
+              <input
+                type="checkbox"
+                className="accent-amber-400"
+                checked={autoSpeak}
+                onChange={(e) => setAutoSpeak(e.target.checked)}
+              />
+              <span>Fragen automatisch vorlesen</span>
+            </label>
+          ) : (
+            <span className="text-xs text-neutral-500">
+              Sprachausgabe wird von deinem Browser nicht unterstützt.
+            </span>
+          )}
+        </div>
+
         <div className="space-y-2 max-h-80 overflow-auto pr-2">
           {log.map((t, i) => (
             <div key={i} className={t.role === "interviewer" ? "text-amber-300" : "text-neutral-100"}>
@@ -219,6 +297,22 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
         </div>
       </div>
 
+      {/* Aktuelle Frage + Steuerung */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-neutral-400">Aktuelle Frage:</span>
+        <span className="text-neutral-100 line-clamp-2">{currentQuestion || "—"}</span>
+        {voiceSupported && currentQuestion && (
+          <button
+            type="button"
+            className="ml-auto px-3 py-1.5 rounded border text-xs"
+            onClick={() => speak(currentQuestion)}
+          >
+            🔊 Frage vorlesen
+          </button>
+        )}
+      </div>
+
+      {/* Antwortfeld */}
       <div className="space-y-2">
         <textarea
           className="w-full h-28 border rounded p-2 bg-[#0f0f0f] border-[#2a2a2a] text-neutral-100"
@@ -226,14 +320,19 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
         />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {!listening ? (
-            <button className="px-3 py-2 rounded border" onClick={startListening}>🎤 Start</button>
+            <button className="px-3 py-2 rounded border" type="button" onClick={startListening}>
+              🎤 Start
+            </button>
           ) : (
-            <button className="px-3 py-2 rounded border" onClick={stopListening}>⏹ Stop</button>
+            <button className="px-3 py-2 rounded border" type="button" onClick={stopListening}>
+              ⏹ Stop
+            </button>
           )}
-          <button className="px-4 py-2 rounded border" onClick={submitAnswer}>Antwort senden</button>
-          <button className="px-4 py-2 rounded border" onClick={onBack}>← Zurück</button>
+          <button className="px-4 py-2 rounded border" type="button" onClick={submitAnswer}>
+            Antwort senden
+          </button>
         </div>
       </div>
     </div>
