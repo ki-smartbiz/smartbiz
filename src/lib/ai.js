@@ -1,40 +1,69 @@
 // src/lib/ai.js
-export async function askAI({ system, user, json = true }) {
-  const url = import.meta.env.VITE_PROXY_URL; // z.B. https://ai.ki-smartbiz.de/proxy.php
+const PROXY_URL = import.meta.env.VITE_PROXY_URL;
 
-  if (!url) {
-    throw new Error("VITE_PROXY_URL ist nicht gesetzt");
+if (!PROXY_URL) {
+  console.warn("VITE_PROXY_URL ist nicht gesetzt – askAI wird Fehler werfen.");
+}
+
+/**
+ * options:
+ * - system: string (Systemprompt)
+ * - user: string (User-Message, gern JSON-String)
+ * - json: boolean (true = wir erwarten JSON-Struktur von der KI)
+ */
+export async function askAI({ system, user, json = false }) {
+  if (!PROXY_URL) {
+    throw new Error("Kein PROXY_URL konfiguriert (VITE_PROXY_URL).");
   }
 
-  const body = JSON.stringify({ system, user, json });
-
-  const res = await fetch(url, {
+  const res = await fetch(PROXY_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body,
+    body: JSON.stringify({ system, user, json }),
   });
 
-  const text = await res.text();
-
-  // ❌ Wenn der Server 404 / 500 o.Ä. zurückgibt -> Fehler werfen, NICHT als Frage benutzen
   if (!res.ok) {
-    console.error("Proxy-Error:", res.status, text);
-    throw new Error(`Proxy antwortet mit ${res.status} – siehe Console/Server.`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`Proxy-Error ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  // Wenn wir explizit JSON erwarten, versuchen wir es zu parsen.
-  if (json) {
+  // Proxy antwortet idealerweise mit JSON
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    // Fallback – reine Textantwort
+    const text = await res.text();
+    if (json) {
+      // Wenn wir JSON wollten, ist das hier ein Problem
+      throw new Error("Antwort war kein JSON: " + text.slice(0, 200));
+    }
+    return text;
+  }
+
+  // Wenn dein proxy.php { ok, content } zurückgibt:
+  const payload = data.content ?? data;
+
+  if (!json) {
+    // Plain Text Modus
+    if (typeof payload === "string") return payload;
+    return JSON.stringify(payload);
+  }
+
+  // JSON-Modus: payload ist entweder schon Objekt oder ein JSON-String der KI
+  if (typeof payload === "object" && payload !== null) {
+    return payload;
+  }
+
+  if (typeof payload === "string") {
     try {
-      const data = JSON.parse(text);
-      return data;
+      return JSON.parse(payload);
     } catch (e) {
-      console.error("Antwort ist kein JSON:", text);
-      throw new Error("KI-Antwort ist kein gültiges JSON.");
+      throw new Error("Konnte KI-JSON nicht parsen: " + e.message);
     }
   }
 
-  // Sonst einfach Text zurückgeben
-  return text;
+  throw new Error("Unerwartetes KI-Response-Format.");
 }
