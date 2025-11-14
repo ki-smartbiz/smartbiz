@@ -4,16 +4,19 @@ import { supabase } from "../lib/supabaseClient";
 import { askAI } from "../lib/ai";
 import { buildSystemPrompt } from "../lib/personaPrompts";
 
-export default function Interview({ interviewId, onBack, onDone }) {
+export default function Interview({
+  persona = "friendly",
+  jdId,
+  cvId,
+  onBack,
+  onDone,
+}) {
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState([]);
   const [step, setStep] = useState(0);
   const [answer, setAnswer] = useState("");
   const [log, setLog] = useState([]); // {role:'interviewer'|'candidate', text}
   const [error, setError] = useState("");
-
-  // Persona stammt jetzt aus der DB, nicht mehr aus Props
-  const [persona, setPersona] = useState("friendly");
 
   // ----- Speech-to-Text -----
   const [listening, setListening] = useState(false);
@@ -23,9 +26,9 @@ export default function Interview({ interviewId, onBack, onDone }) {
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true); // automatisch neue Fragen vorlesen?
 
-  const interviewIdRef = useRef(interviewId);
+  const interviewIdRef = useRef(null);
 
-  // ====== Init: Check TTS Support ======
+  /* ====== Init: Check TTS Support ====== */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const supported =
@@ -33,62 +36,80 @@ export default function Interview({ interviewId, onBack, onDone }) {
     setVoiceSupported(supported);
   }, []);
 
-  // ====== Interview initialisieren ======
+  /* ====== Interview initialisieren ====== */
   useEffect(() => {
     (async () => {
       setError("");
-      setLoading(true);
       try {
         const { data: session } = await supabase.auth.getUser();
         const uid = session?.user?.id;
         if (!uid) throw new Error("Keine Session");
-
-        if (!interviewId) throw new Error("Kein Interview ausgewählt.");
-
-        // Interview aus DB holen (inkl. Persona + Upload-IDs)
-        const { data: interview, error: iErr } = await supabase
-          .from("interviews")
-          .select("id, persona, jd_upload, cv_upload")
-          .eq("id", interviewId)
-          .single();
-        if (iErr) throw iErr;
-
-        interviewIdRef.current = interview.id;
-        const personaFromDb = interview.persona || "friendly";
-        setPersona(personaFromDb);
-
-        const jdUploadId = interview.jd_upload;
-        const cvUploadId = interview.cv_upload;
 
         // JD & CV holen
         const fetchTxt = async (id) => {
           if (!id) return "";
           const { data, error } = await supabase
             .from("uploads")
-            .select("*")
+            .select("text_extracted")
             .eq("id", id)
             .single();
           if (error) throw error;
           return data?.text_extracted || "";
         };
 
-        const jdText = await fetchTxt(jdUploadId);
-        const cvText = await fetchTxt(cvUploadId);
+        const jdText = await fetchTxt(jdId);
+        const cvText = await fetchTxt(cvId);
 
-        // Fragen generieren
-        const sys = buildSystemPrompt(personaFromDb);
-        const user = JSON.stringify({
+        // Interviewzeile anlegen
+        {
+          const { data, error } = await supabase
+            .from("interviews")
+            .insert({
+              user_id: uid,
+              jd_upload: jdId || null,
+              cv_upload: cvId || null,
+              persona,
+            })
+            .select("id")
+            .single();
+          if (error) throw error;
+          interviewIdRef.current = data.id;
+        }
+
+        // Fragen generieren – **JSON erzwingen**
+        const sys = buildSystemPrompt(persona);
+        const userPayload = {
           instruction:
-            "Erzeuge 3 präzise, jobrelevante Interviewfragen als JSON. Nur Nummernfragen, keine Floskeln.",
+            'Erzeuge genau 3 präzise, jobrelevante Interviewfragen. Antworte NUR mit JSON im Format {"questions":["Frage 1","Frage 2","Frage 3"]} – keine Erklärungen, kein Text außerhalb des JSON.',
           jd: jdText.slice(0, 4000),
           cv: cvText.slice(0, 4000),
-        });
-        const out = await askAI({ system: sys, user });
+        };
 
-        const qs = Array.isArray(out.questions)
-          ? out.questions.filter(Boolean)
-          : [];
-        if (!qs.length) throw new Error("Konnte keine Fragen generieren.");
+        const out = await askAI({
+          system: sys,
+          user: JSON.stringify(userPayload),
+          json: true, // <--- WICHTIG
+        });
+
+        // Robust parsen – egal was die KI genau zurückgibt
+        let rawList = [];
+
+        if (Array.isArray(out)) {
+          rawList = out;
+        } else if (Array.isArray(out?.questions)) {
+          rawList = out.questions;
+        } else if (typeof out?.questions === "string") {
+          rawList = [out.questions];
+        }
+
+        const qs = rawList
+          .map((q) => (q != null ? String(q).trim() : ""))
+          .filter(Boolean);
+
+        if (!qs.length) {
+          console.warn("KI-Antwort für Fragen:", out);
+          throw new Error("Konnte keine Fragen generieren (leere Antwort).");
+        }
 
         setQuestions(qs);
         setLog((prev) => [...prev, { role: "interviewer", text: qs[0] }]);
@@ -101,9 +122,9 @@ export default function Interview({ interviewId, onBack, onDone }) {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interviewId]);
+  }, []);
 
-  // ====== Helper: Turn speichern ======
+  /* ====== Helper: Turn speichern ====== */
   async function saveTurn({ role, text }) {
     const iid = interviewIdRef.current;
     if (!iid) return;
@@ -118,7 +139,7 @@ export default function Interview({ interviewId, onBack, onDone }) {
     }
   }
 
-  // ====== Text-to-Speech: Vorlesen ======
+  /* ====== Text-to-Speech: Vorlesen ====== */
   function speak(text) {
     if (!voiceSupported || !text || typeof window === "undefined") return;
     try {
@@ -131,7 +152,6 @@ export default function Interview({ interviewId, onBack, onDone }) {
       u.rate = 1.0;
       u.pitch = 1.0;
 
-      // optional je Persona leicht variieren
       if (persona === "beast") {
         u.rate = 1.1;
         u.pitch = 0.9;
@@ -161,7 +181,7 @@ export default function Interview({ interviewId, onBack, onDone }) {
       ? log[log.length - 1].text
       : questions[step] || "";
 
-  // ====== Antwort abschicken ======
+  /* ====== Antwort abschicken ====== */
   async function submitAnswer() {
     if (!answer.trim()) return;
     const a = answer.trim();
@@ -174,8 +194,8 @@ export default function Interview({ interviewId, onBack, onDone }) {
     const sys = buildSystemPrompt(persona);
     const user = JSON.stringify({
       instruction:
-        "Analysiere die Frage & Antwort. Wenn die Antwort vage ist, stelle genau EINE Follow-Up-Frage. " +
-        "Wenn sie präzise ist, gib 'ok' (string) zurück.",
+        "Analysiere Frage & Antwort. Wenn die Antwort vage ist, stelle genau EINE Follow-Up-Frage. " +
+        'Wenn sie präzise ist, antworte mit JSON {"ok": true}.',
       question: currQ,
       answer: a,
     });
@@ -183,7 +203,7 @@ export default function Interview({ interviewId, onBack, onDone }) {
     try {
       const out = await askAI({ system: sys, user, json: true });
 
-      if (typeof out === "string" && out.toLowerCase() === "ok") {
+      if (out && out.ok) {
         // nächste Frage
         if (step + 1 < questions.length) {
           const nextStep = step + 1;
@@ -195,9 +215,13 @@ export default function Interview({ interviewId, onBack, onDone }) {
           await finishInterview();
         }
       } else if (out && out.followup) {
-        setLog((prev) => [...prev, { role: "interviewer", text: out.followup }]);
+        setLog((prev) => [
+          ...prev,
+          { role: "interviewer", text: out.followup },
+        ]);
         await saveTurn({ role: "interviewer", text: out.followup });
       } else {
+        // Fallback: nächste Frage
         if (step + 1 < questions.length) {
           const nextStep = step + 1;
           setStep(nextStep);
@@ -214,14 +238,14 @@ export default function Interview({ interviewId, onBack, onDone }) {
     }
   }
 
-  // ====== Interview beenden ======
+  /* ====== Interview beenden ====== */
   async function finishInterview() {
     try {
       const sys = buildSystemPrompt(persona);
       const user = JSON.stringify({
         instruction:
-          "Erzeuge eine kurze, prägnante Zusammenfassung des Interviews (Stärken, Risiken, nächster Schritt). " +
-          "JSON: { summary: string }",
+          'Erzeuge eine kurze, prägnante Zusammenfassung des Interviews (Stärken, Risiken, nächster Schritt). ' +
+          'Antworte als JSON {"summary": "..."}',
         transcript: log,
       });
       const out = await askAI({ system: sys, user, json: true });
@@ -240,12 +264,11 @@ export default function Interview({ interviewId, onBack, onDone }) {
     }
   }
 
-  // ====== Speech-to-Text Setup ======
+  /* ====== Speech-to-Text Setup ====== */
   function ensureRecognition() {
     if (recognitionRef.current) return recognitionRef.current;
     if (typeof window === "undefined") return null;
-    const SR =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return null;
 
     const rec = new SR();
@@ -320,9 +343,7 @@ export default function Interview({ interviewId, onBack, onDone }) {
                 t.role === "interviewer" ? "text-amber-300" : "text-neutral-100"
               }
             >
-              <strong>
-                {t.role === "interviewer" ? "Interviewer:" : "Du:"}
-              </strong>{" "}
+              <strong>{t.role === "interviewer" ? "Interviewer:" : "Du:"}</strong>{" "}
               {t.text}
             </div>
           ))}
