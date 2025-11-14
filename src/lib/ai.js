@@ -1,69 +1,41 @@
 // src/lib/ai.js
-const PROXY_URL = import.meta.env.VITE_PROXY_URL;
+const RAW_URL = import.meta.env.VITE_PROXY_URL?.trim();
 
-if (!PROXY_URL) {
-  console.warn("VITE_PROXY_URL ist nicht gesetzt – askAI wird Fehler werfen.");
-}
+// Standard: relativ, damit es unter /app → /app/proxy.php wird
+const PROXY_URL = RAW_URL || "proxy.php";
 
-/**
- * options:
- * - system: string (Systemprompt)
- * - user: string (User-Message, gern JSON-String)
- * - json: boolean (true = wir erwarten JSON-Struktur von der KI)
- */
 export async function askAI({ system, user, json = false }) {
-  if (!PROXY_URL) {
-    throw new Error("Kein PROXY_URL konfiguriert (VITE_PROXY_URL).");
-  }
+  const body = {
+    model: "gpt-4.1-mini",
+    messages: [
+      system ? { role: "system", content: system } : null,
+      user ? { role: "user", content: user } : null,
+    ].filter(Boolean),
+    response_format: json ? { type: "json_object" } : undefined,
+  };
 
   const res = await fetch(PROXY_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ system, user, json }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Proxy-Error ${res.status}: ${text.slice(0, 200)}`);
+    throw new Error(`Proxy-Error ${res.status}: ${text}`);
   }
 
-  // Proxy antwortet idealerweise mit JSON
-  let data;
-  try {
-    data = await res.json();
-  } catch {
-    // Fallback – reine Textantwort
-    const text = await res.text();
-    if (json) {
-      // Wenn wir JSON wollten, ist das hier ein Problem
-      throw new Error("Antwort war kein JSON: " + text.slice(0, 200));
+  const data = await res.json();
+
+  if (json) {
+    const content = data.choices?.[0]?.message?.content;
+    if (typeof content === "string") return JSON.parse(content);
+    if (Array.isArray(content)) {
+      const joined = content.map((c) => c.text || c).join("");
+      return JSON.parse(joined);
     }
-    return text;
+    return content;
   }
 
-  // Wenn dein proxy.php { ok, content } zurückgibt:
-  const payload = data.content ?? data;
-
-  if (!json) {
-    // Plain Text Modus
-    if (typeof payload === "string") return payload;
-    return JSON.stringify(payload);
-  }
-
-  // JSON-Modus: payload ist entweder schon Objekt oder ein JSON-String der KI
-  if (typeof payload === "object" && payload !== null) {
-    return payload;
-  }
-
-  if (typeof payload === "string") {
-    try {
-      return JSON.parse(payload);
-    } catch (e) {
-      throw new Error("Konnte KI-JSON nicht parsen: " + e.message);
-    }
-  }
-
-  throw new Error("Unerwartetes KI-Response-Format.");
+  return data;
 }
