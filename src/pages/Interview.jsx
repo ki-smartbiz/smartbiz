@@ -4,31 +4,30 @@ import { supabase } from "../lib/supabaseClient";
 import { askAI } from "../lib/ai";
 import { buildSystemPrompt } from "../lib/personaPrompts";
 
-export default function Interview({
-  persona = "friendly",
-  jdId,
-  cvId,
-  onBack,
-  onDone,
-}) {
+// Erwartung:
+// - App.jsx legt das Interview an und übergibt interviewId
+// - interviews: id, user_id, persona, jd_upload, cv_upload, completed
+export default function Interview({ interviewId, onBack, onDone }) {
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState([]);
   const [step, setStep] = useState(0);
   const [answer, setAnswer] = useState("");
-  const [log, setLog] = useState([]); // {role:'interviewer'|'candidate', text}
+  const [log, setLog] = useState([]); // {role: 'interviewer' | 'candidate', text}
   const [error, setError] = useState("");
 
-  // ----- Speech-to-Text -----
+  const [persona, setPersona] = useState("friendly");
+
+  // Speech-to-Text
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef(null);
 
-  // ----- Text-to-Speech (Vorlesen) -----
+  // Text-to-Speech
   const [voiceSupported, setVoiceSupported] = useState(false);
-  const [autoSpeak, setAutoSpeak] = useState(true); // automatisch neue Fragen vorlesen?
+  const [autoSpeak, setAutoSpeak] = useState(true);
 
-  const interviewIdRef = useRef(null);
+  const interviewIdRef = useRef(interviewId);
 
-  /* ====== Init: Check TTS Support ====== */
+  /* ====== TTS Support check ====== */
   useEffect(() => {
     if (typeof window === "undefined") return;
     const supported =
@@ -36,16 +35,33 @@ export default function Interview({
     setVoiceSupported(supported);
   }, []);
 
-  /* ====== Interview initialisieren ====== */
+  /* ====== Interview + Uploads laden & Fragen generieren ====== */
   useEffect(() => {
+    if (!interviewId) {
+      setError("Kein Interview gefunden.");
+      setLoading(false);
+      return;
+    }
+
+    interviewIdRef.current = interviewId;
+
     (async () => {
       setError("");
+      setLoading(true);
       try {
-        const { data: session } = await supabase.auth.getUser();
-        const uid = session?.user?.id;
-        if (!uid) throw new Error("Keine Session");
+        // 1) Interview holen
+        const { data: interview, error: ie } = await supabase
+          .from("interviews")
+          .select("id, persona, jd_upload, cv_upload")
+          .eq("id", interviewId)
+          .single();
+        if (ie) throw ie;
+        if (!interview) throw new Error("Interview nicht gefunden.");
 
-        // JD & CV holen
+        const personaKey = interview.persona || "friendly";
+        setPersona(personaKey);
+
+        // 2) Upload-Texte holen
         const fetchTxt = async (id) => {
           if (!id) return "";
           const { data, error } = await supabase
@@ -57,30 +73,14 @@ export default function Interview({
           return data?.text_extracted || "";
         };
 
-        const jdText = await fetchTxt(jdId);
-        const cvText = await fetchTxt(cvId);
+        const jdText = await fetchTxt(interview.jd_upload);
+        const cvText = await fetchTxt(interview.cv_upload);
 
-        // Interviewzeile anlegen
-        {
-          const { data, error } = await supabase
-            .from("interviews")
-            .insert({
-              user_id: uid,
-              jd_upload: jdId || null,
-              cv_upload: cvId || null,
-              persona,
-            })
-            .select("id")
-            .single();
-          if (error) throw error;
-          interviewIdRef.current = data.id;
-        }
-
-        // Fragen generieren – **JSON erzwingen**
-        const sys = buildSystemPrompt(persona);
+        // 3) Fragen via KI generieren – JSON erzwingen
+        const sys = buildSystemPrompt(personaKey);
         const userPayload = {
           instruction:
-            'Erzeuge genau 3 präzise, jobrelevante Interviewfragen. Antworte NUR mit JSON im Format {"questions":["Frage 1","Frage 2","Frage 3"]} – keine Erklärungen, kein Text außerhalb des JSON.',
+            'Erzeuge genau 3 präzise, jobrelevante Interviewfragen. Antworte NUR mit JSON im Format {"questions":["Frage 1","Frage 2","Frage 3"]}. Keine Erklärungen, kein Text außerhalb dieses JSON.',
           jd: jdText.slice(0, 4000),
           cv: cvText.slice(0, 4000),
         };
@@ -88,19 +88,14 @@ export default function Interview({
         const out = await askAI({
           system: sys,
           user: JSON.stringify(userPayload),
-          json: true, // <--- WICHTIG
+          json: true,
         });
 
-        // Robust parsen – egal was die KI genau zurückgibt
         let rawList = [];
-
-        if (Array.isArray(out)) {
-          rawList = out;
-        } else if (Array.isArray(out?.questions)) {
-          rawList = out.questions;
-        } else if (typeof out?.questions === "string") {
+        if (Array.isArray(out)) rawList = out;
+        else if (Array.isArray(out?.questions)) rawList = out.questions;
+        else if (typeof out?.questions === "string")
           rawList = [out.questions];
-        }
 
         const qs = rawList
           .map((q) => (q != null ? String(q).trim() : ""))
@@ -112,8 +107,12 @@ export default function Interview({
         }
 
         setQuestions(qs);
-        setLog((prev) => [...prev, { role: "interviewer", text: qs[0] }]);
-        await saveTurn({ role: "interviewer", text: qs[0] });
+        setLog([{ role: "interviewer", text: qs[0] }]);
+        await saveTurn({
+          interviewId: interview.id,
+          role: "interviewer",
+          text: qs[0],
+        });
       } catch (e) {
         console.error(e);
         setError(e.message || "Interview-Start fehlgeschlagen.");
@@ -122,11 +121,11 @@ export default function Interview({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [interviewId]);
 
-  /* ====== Helper: Turn speichern ====== */
-  async function saveTurn({ role, text }) {
-    const iid = interviewIdRef.current;
+  /* ====== Turn speichern ====== */
+  async function saveTurn({ interviewId, role, text }) {
+    const iid = interviewId ?? interviewIdRef.current;
     if (!iid) return;
     try {
       await supabase.from("interview_turns").insert({
@@ -139,7 +138,7 @@ export default function Interview({
     }
   }
 
-  /* ====== Text-to-Speech: Vorlesen ====== */
+  /* ====== TTS ====== */
   function speak(text) {
     if (!voiceSupported || !text || typeof window === "undefined") return;
     try {
@@ -166,13 +165,10 @@ export default function Interview({
     }
   }
 
-  // Immer wenn ein neuer Interviewer-Turn reinkommt → ggf. automatisch vorlesen
   useEffect(() => {
     if (!autoSpeak || !voiceSupported || !log.length) return;
     const last = log[log.length - 1];
-    if (last.role === "interviewer") {
-      speak(last.text);
-    }
+    if (last.role === "interviewer") speak(last.text);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [log, autoSpeak, voiceSupported]);
 
@@ -188,14 +184,16 @@ export default function Interview({
     setAnswer("");
 
     setLog((prev) => [...prev, { role: "candidate", text: a }]);
-    await saveTurn({ role: "candidate", text: a });
+    await saveTurn({
+      role: "candidate",
+      text: a,
+    });
 
     const currQ = questions[step];
     const sys = buildSystemPrompt(persona);
     const user = JSON.stringify({
       instruction:
-        "Analysiere Frage & Antwort. Wenn die Antwort vage ist, stelle genau EINE Follow-Up-Frage. " +
-        'Wenn sie präzise ist, antworte mit JSON {"ok": true}.',
+        'Analysiere Frage & Antwort. Wenn die Antwort vage ist, stelle genau EINE Follow-Up-Frage. Wenn sie präzise ist, antworte mit JSON {"ok": true}.',
       question: currQ,
       answer: a,
     });
@@ -244,18 +242,18 @@ export default function Interview({
       const sys = buildSystemPrompt(persona);
       const user = JSON.stringify({
         instruction:
-          'Erzeuge eine kurze, prägnante Zusammenfassung des Interviews (Stärken, Risiken, nächster Schritt). ' +
-          'Antworte als JSON {"summary": "..."}',
+          'Erzeuge eine kurze, prägnante Zusammenfassung des Interviews (Stärken, Risiken, nächster Schritt). Antworte als JSON {"summary": "..."}',
         transcript: log,
       });
       const out = await askAI({ system: sys, user, json: true });
 
       const iid = interviewIdRef.current;
-      if (iid)
+      if (iid) {
         await supabase
           .from("interviews")
           .update({ completed: true })
           .eq("id", iid);
+      }
 
       onDone?.({ summary: out?.summary || "Interview abgeschlossen." });
     } catch (e) {
@@ -264,7 +262,7 @@ export default function Interview({
     }
   }
 
-  /* ====== Speech-to-Text Setup ====== */
+  /* ====== Speech-to-Text ====== */
   function ensureRecognition() {
     if (recognitionRef.current) return recognitionRef.current;
     if (typeof window === "undefined") return null;
@@ -306,7 +304,9 @@ export default function Interview({
   return (
     <div className="max-w-3xl mx-auto p-6 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Interview ({persona})</h1>
+        <h1 className="text-2xl font-bold">
+          Interview ({persona || "—"})
+        </h1>
         <button className="px-3 py-1.5 rounded border text-sm" onClick={onBack}>
           ← Zurück
         </button>
@@ -350,7 +350,7 @@ export default function Interview({
         </div>
       </div>
 
-      {/* Aktuelle Frage + Steuerung */}
+      {/* Aktuelle Frage */}
       <div className="flex items-center gap-2 text-sm">
         <span className="text-neutral-400">Aktuelle Frage:</span>
         <span className="text-neutral-100 line-clamp-2">
