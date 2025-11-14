@@ -152,6 +152,7 @@ function IconPrice() {
     </div>
   );
 }
+
 function IconMessage() {
   return (
     <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-900/30 to-sky-500/10 border border-[#2a2a2a]">
@@ -177,6 +178,7 @@ function IconMessage() {
     </div>
   );
 }
+
 function IconFlow() {
   return (
     <div className="p-3 rounded-xl bg-gradient-to-br from-violet-900/30 to-fuchsia-500/10 border border-[#2a2a2a]">
@@ -363,7 +365,7 @@ function AccountView({ session }) {
 /* ---------- Haupt-App ---------- */
 export default function App() {
   const [view, setView] = useState("home");
-  // Bestehende Views bleiben unangetastet.
+  // Bestehende Views bleiben: "home" | "pricefinder" | "messagematcher" | "contentflow" | "login" | "register" | "account" | "admin"
   // NEU: Bewerbungstrainer-Views:
   // "trainer_upload" | "trainer_persona" | "trainer_interview" | "trainer_report"
 
@@ -374,7 +376,7 @@ export default function App() {
   const [jdId, setJdId] = useState(null);
   const [cvId, setCvId] = useState(null);
   const [interviewId, setInterviewId] = useState(null);
-  const [coachPersona, setCoachPersona] = useState("sachlich");
+  const [coachPersona, setCoachPersona] = useState("neutral"); // human | neutral | beast
 
   // Session + Listener
   useEffect(() => {
@@ -449,8 +451,10 @@ export default function App() {
     </header>
   );
 
-  /* ==== NEU: Persona wählen → Interview anlegen ==== */
-  async function handlePickPersona(persona) {
+  /* ==== Persona wählen → Interview anlegen (mit Mapping auf erlaubte Werte) ==== */
+  const PERSONA_CANON = ["human", "neutral", "beast"];
+
+  async function handlePickPersona(personaId) {
     try {
       const { data: u } = await supabase.auth.getUser();
       const userId = u?.user?.id;
@@ -459,11 +463,21 @@ export default function App() {
         return;
       }
 
+      // Persona in erlaubte DB-Werte mappen
+      let dbPersona;
+      if (PERSONA_CANON.includes(personaId)) {
+        dbPersona = personaId;
+      } else if (personaId === "sachlich") {
+        dbPersona = "neutral";
+      } else {
+        dbPersona = "neutral";
+      }
+
       const { data, error } = await supabase
         .from("interviews")
         .insert({
           user_id: userId,
-          persona,
+          persona: dbPersona,
           jd_upload: jdId,
           cv_upload: cvId,
         })
@@ -483,7 +497,7 @@ export default function App() {
       <div className="app-shell">
         <TopBar />
 
-        {/* AUTH (bestehend) */}
+        {/* AUTH */}
         {!session && view === "login" && (
           <LoginView
             onOK={() => setView("home")}
@@ -497,7 +511,7 @@ export default function App() {
           />
         )}
 
-        {/* HOME – Karten (bestehende + NEU Bewerbungstrainer) */}
+        {/* HOME – Karten (bestehend + Bewerbungstrainer) */}
         {view === "home" && (
           <main className="space-y-10">
             <section className="max-w-3xl mx-auto">
@@ -528,8 +542,6 @@ export default function App() {
                   onOpen={() => setView("contentflow")}
                   Icon={IconFlow}
                 />
-
-                {/* NEU: Bewerbungstrainer als vierte Karte */}
                 <FeatureCard
                   title="Bewerbungstrainer"
                   subtitle="JD + CV hochladen, realistisch interviewt werden"
@@ -567,7 +579,7 @@ export default function App() {
         )}
 
         {view === "contentflow" && (
-          <section className="max-w-5xl mx_auto">
+          <section className="max-w-5xl mx-auto">
             <Crumb title="contentflow" />
             <div className="mt-3">
               <Button onClick={() => setView("home")}>← Zurück</Button>
@@ -578,7 +590,7 @@ export default function App() {
           </section>
         )}
 
-        {/* ==== NEU: Bewerbungstrainer Flow ==== */}
+        {/* ==== Bewerbungstrainer Flow ==== */}
         {session && view === "trainer_upload" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="bewerbungstrainer / upload" />
@@ -622,7 +634,9 @@ export default function App() {
           <section className="max-w-5xl mx-auto">
             <Crumb title="bewerbungstrainer / interview" />
             <div className="mt-3">
-              <Button onClick={() => setView("home")}>← Abbrechen</Button>
+              <Button onClick={() => setView("home")}>
+                ← Abbrechen
+              </Button>
             </div>
             <div className="mt-6">
               <Interview interviewId={interviewId} />
@@ -647,7 +661,7 @@ export default function App() {
           </section>
         )}
 
-        {/* KONTO / ADMIN (bestehend) */}
+        {/* KONTO / ADMIN */}
         {session && view === "account" && <AccountView session={session} />}
 
         {session && role === "admin" && view === "admin" && (
