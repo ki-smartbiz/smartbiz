@@ -4,13 +4,16 @@ import { supabase } from "../lib/supabaseClient";
 import { askAI } from "../lib/ai";
 import { buildSystemPrompt } from "../lib/personaPrompts";
 
-export default function Interview({ persona = "friendly", jdId, cvId, onBack, onDone }) {
+export default function Interview({ interviewId, onBack, onDone }) {
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState([]);
   const [step, setStep] = useState(0);
   const [answer, setAnswer] = useState("");
   const [log, setLog] = useState([]); // {role:'interviewer'|'candidate', text}
   const [error, setError] = useState("");
+
+  // Persona stammt jetzt aus der DB, nicht mehr aus Props
+  const [persona, setPersona] = useState("friendly");
 
   // ----- Speech-to-Text -----
   const [listening, setListening] = useState(false);
@@ -20,12 +23,13 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [autoSpeak, setAutoSpeak] = useState(true); // automatisch neue Fragen vorlesen?
 
-  const interviewIdRef = useRef(null);
+  const interviewIdRef = useRef(interviewId);
 
   // ====== Init: Check TTS Support ======
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const supported = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+    const supported =
+      "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
     setVoiceSupported(supported);
   }, []);
 
@@ -33,33 +37,46 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
   useEffect(() => {
     (async () => {
       setError("");
+      setLoading(true);
       try {
         const { data: session } = await supabase.auth.getUser();
         const uid = session?.user?.id;
         if (!uid) throw new Error("Keine Session");
 
+        if (!interviewId) throw new Error("Kein Interview ausgewählt.");
+
+        // Interview aus DB holen (inkl. Persona + Upload-IDs)
+        const { data: interview, error: iErr } = await supabase
+          .from("interviews")
+          .select("id, persona, jd_upload, cv_upload")
+          .eq("id", interviewId)
+          .single();
+        if (iErr) throw iErr;
+
+        interviewIdRef.current = interview.id;
+        const personaFromDb = interview.persona || "friendly";
+        setPersona(personaFromDb);
+
+        const jdUploadId = interview.jd_upload;
+        const cvUploadId = interview.cv_upload;
+
         // JD & CV holen
         const fetchTxt = async (id) => {
-          const { data, error } = await supabase.from("uploads").select("*").eq("id", id).single();
+          if (!id) return "";
+          const { data, error } = await supabase
+            .from("uploads")
+            .select("*")
+            .eq("id", id)
+            .single();
           if (error) throw error;
           return data?.text_extracted || "";
         };
-        const jdText = jdId ? await fetchTxt(jdId) : "";
-        const cvText = cvId ? await fetchTxt(cvId) : "";
 
-        // Interviewzeile anlegen
-        {
-          const { data, error } = await supabase
-            .from("interviews")
-            .insert({ user_id: uid, jd_id: jdId || null, cv_id: cvId || null, persona })
-            .select("id")
-            .single();
-          if (error) throw error;
-          interviewIdRef.current = data.id;
-        }
+        const jdText = await fetchTxt(jdUploadId);
+        const cvText = await fetchTxt(cvUploadId);
 
         // Fragen generieren
-        const sys = buildSystemPrompt(persona);
+        const sys = buildSystemPrompt(personaFromDb);
         const user = JSON.stringify({
           instruction:
             "Erzeuge 3 präzise, jobrelevante Interviewfragen als JSON. Nur Nummernfragen, keine Floskeln.",
@@ -68,7 +85,9 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
         });
         const out = await askAI({ system: sys, user });
 
-        const qs = Array.isArray(out.questions) ? out.questions.filter(Boolean) : [];
+        const qs = Array.isArray(out.questions)
+          ? out.questions.filter(Boolean)
+          : [];
         if (!qs.length) throw new Error("Konnte keine Fragen generieren.");
 
         setQuestions(qs);
@@ -82,7 +101,7 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [interviewId]);
 
   // ====== Helper: Turn speichern ======
   async function saveTurn({ role, text }) {
@@ -108,7 +127,7 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
       synth.cancel();
 
       const u = new window.SpeechSynthesisUtterance(text);
-      u.lang = "de-DE";    // gern anpassen
+      u.lang = "de-DE";
       u.rate = 1.0;
       u.pitch = 1.0;
 
@@ -208,7 +227,11 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
       const out = await askAI({ system: sys, user, json: true });
 
       const iid = interviewIdRef.current;
-      if (iid) await supabase.from("interviews").update({ completed: true }).eq("id", iid);
+      if (iid)
+        await supabase
+          .from("interviews")
+          .update({ completed: true })
+          .eq("id", iid);
 
       onDone?.({ summary: out?.summary || "Interview abgeschlossen." });
     } catch (e) {
@@ -221,7 +244,8 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
   function ensureRecognition() {
     if (recognitionRef.current) return recognitionRef.current;
     if (typeof window === "undefined") return null;
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SR =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return null;
 
     const rec = new SR();
@@ -290,8 +314,16 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
 
         <div className="space-y-2 max-h-80 overflow-auto pr-2">
           {log.map((t, i) => (
-            <div key={i} className={t.role === "interviewer" ? "text-amber-300" : "text-neutral-100"}>
-              <strong>{t.role === "interviewer" ? "Interviewer:" : "Du:"}</strong> {t.text}
+            <div
+              key={i}
+              className={
+                t.role === "interviewer" ? "text-amber-300" : "text-neutral-100"
+              }
+            >
+              <strong>
+                {t.role === "interviewer" ? "Interviewer:" : "Du:"}
+              </strong>{" "}
+              {t.text}
             </div>
           ))}
         </div>
@@ -300,7 +332,9 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
       {/* Aktuelle Frage + Steuerung */}
       <div className="flex items-center gap-2 text-sm">
         <span className="text-neutral-400">Aktuelle Frage:</span>
-        <span className="text-neutral-100 line-clamp-2">{currentQuestion || "—"}</span>
+        <span className="text-neutral-100 line-clamp-2">
+          {currentQuestion || "—"}
+        </span>
         {voiceSupported && currentQuestion && (
           <button
             type="button"
@@ -322,15 +356,27 @@ export default function Interview({ persona = "friendly", jdId, cvId, onBack, on
         />
         <div className="flex flex-wrap gap-2">
           {!listening ? (
-            <button className="px-3 py-2 rounded border" type="button" onClick={startListening}>
+            <button
+              className="px-3 py-2 rounded border"
+              type="button"
+              onClick={startListening}
+            >
               🎤 Start
             </button>
           ) : (
-            <button className="px-3 py-2 rounded border" type="button" onClick={stopListening}>
+            <button
+              className="px-3 py-2 rounded border"
+              type="button"
+              onClick={stopListening}
+            >
               ⏹ Stop
             </button>
           )}
-          <button className="px-4 py-2 rounded border" type="button" onClick={submitAnswer}>
+          <button
+            className="px-4 py-2 rounded border"
+            type="button"
+            onClick={submitAnswer}
+          >
             Antwort senden
           </button>
         </div>
