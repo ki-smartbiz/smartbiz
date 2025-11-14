@@ -20,7 +20,13 @@ import Report from "./pages/Report";
 const theme = { gold: "#d1a45f", goldHover: "#c2924d" };
 
 /* ---------- UI-Primitives ---------- */
-function Button({ children, onClick, variant = "outline", className = "", type = "button" }) {
+function Button({
+  children,
+  onClick,
+  variant = "outline",
+  className = "",
+  type = "button",
+}) {
   const vars = { "--gold": theme.gold, "--goldHover": theme.goldHover };
   const base =
     variant === "solid"
@@ -40,11 +46,22 @@ function Button({ children, onClick, variant = "outline", className = "", type =
 
 function Card({ title, subtitle, children, className = "" }) {
   return (
-    <div className={`rounded-2xl p-6 bg-[#141414] border border-[#2a2a2a] ${className}`}>
+    <div
+      className={`rounded-2xl p-6 bg-[#141414] border border-[#2a2a2a] ${className}`}
+    >
       {(title || subtitle) && (
         <div className="mb-3">
-          {title && <div className="text-sm font-semibold" style={{ color: theme.gold }}>{title}</div>}
-          {subtitle && <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>}
+          {title && (
+            <div
+              className="text-sm font-semibold"
+              style={{ color: theme.gold }}
+            >
+              {title}
+            </div>
+          )}
+          {subtitle && (
+            <div className="text-xs mt-1 text-neutral-400">{subtitle}</div>
+          )}
         </div>
       )}
       {children}
@@ -62,7 +79,14 @@ function Crumb({ title }) {
   );
 }
 
-function TextField({ label, type = "text", value, onChange, autoComplete, placeholder }) {
+function TextField({
+  label,
+  type = "text",
+  value,
+  onChange,
+  autoComplete,
+  placeholder,
+}) {
   return (
     <label className="grid gap-1">
       <span className="text-sm text-neutral-300">{label}</span>
@@ -83,14 +107,23 @@ function FeatureCard({ title, subtitle, onOpen, Icon }) {
   return (
     <div className="feature-card w-[22rem]">
       <div className="flex items-start gap-4">
-        <div className="feature-card__icon shrink-0"><Icon /></div>
+        <div className="feature-card__icon shrink-0">
+          <Icon />
+        </div>
         <div>
-          <div className="text-lg font-semibold" style={{ color: theme.gold }}>{title}</div>
+          <div
+            className="text-lg font-semibold"
+            style={{ color: theme.gold }}
+          >
+            {title}
+          </div>
           <div className="text-sm text-neutral-300 mt-1">{subtitle}</div>
         </div>
       </div>
       <div className="mt-6">
-        <Button variant="solid" className="w-full" onClick={onOpen}>Öffnen</Button>
+        <Button variant="solid" className="w-full" onClick={onOpen}>
+          Öffnen
+        </Button>
       </div>
     </div>
   );
@@ -99,9 +132,22 @@ function FeatureCard({ title, subtitle, onOpen, Icon }) {
 function IconPrice() {
   return (
     <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-900/30 to-amber-500/10 border border-[#2a2a2a]">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-amber-300">
-        <path d="M20 13L12 21L3 12L11 4L20 13Z" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M8.5 11.5c.828 0 1.5-.672 1.5-1.5S9.328 8.5 8.5 8.5 7 9.172 7 10s.672 1.5 1.5 1.5Z" fill="currentColor"/>
+      <svg
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="text-amber-300"
+      >
+        <path
+          d="M20 13L12 21L3 12L11 4L20 13Z"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M8.5 11.5c.828 0 1.5-.672 1.5-1.5S9.328 8.5 8.5 8.5 7 9.172 7 10s.672 1.5 1.5 1.5Z"
+          fill="currentColor"
+        />
       </svg>
     </div>
   );
@@ -109,9 +155,24 @@ function IconPrice() {
 function IconMessage() {
   return (
     <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-900/30 to-sky-500/10 border border-[#2a2a2a]">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-sky-300">
-        <path d="M21 12c0 3.866-3.806 7-8.5 7-.94 0-1.848-.118-2.7-.339L4 20l1.53-3.061C4.584 15.72 4 13.93 4 12 4 8.134 7.806 5 12.5 5S21 8.134 21 12Z" stroke="currentColor" strokeWidth="1.6"/>
-        <path d="M8 12h5M8 9.5h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+      <svg
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="text-sky-300"
+      >
+        <path
+          d="M21 12c0 3.866-3.806 7-8.5 7-.94 0-1.848-.118-2.7-.339L4 20l1.53-3.061C4.584 15.72 4 13.93 4 12 4 8.134 7.806 5 12.5 5S21 8.134 21 12Z"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <path
+          d="M8 12h5M8 9.5h8"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
       </svg>
     </div>
   );
@@ -119,10 +180,37 @@ function IconMessage() {
 function IconFlow() {
   return (
     <div className="p-3 rounded-xl bg-gradient-to-br from-violet-900/30 to-fuchsia-500/10 border border-[#2a2a2a]">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-fuchsia-300">
-        <path d="M5 7h7a4 4 0 0 1 4 4v0a4 4 0 0 0 4 4H19" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-        <rect x="3" y="5" width="6" height="4" rx="1.2" stroke="currentColor" strokeWidth="1.6"/>
-        <rect x="15" y="15" width="6" height="4" rx="1.2" stroke="currentColor" strokeWidth="1.6"/>
+      <svg
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="text-fuchsia-300"
+      >
+        <path
+          d="M5 7h7a4 4 0 0 1 4 4v0a4 4 0 0 0 4 4H19"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <rect
+          x="3"
+          y="5"
+          width="6"
+          height="4"
+          rx="1.2"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
+        <rect
+          x="15"
+          y="15"
+          width="6"
+          height="4"
+          rx="1.2"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
       </svg>
     </div>
   );
@@ -132,9 +220,26 @@ function IconFlow() {
 function IconTrainer() {
   return (
     <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-900/30 to-emerald-500/10 border border-[#2a2a2a]">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" className="text-emerald-300">
-        <path d="M5 8h14M5 12h10M5 16h7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-        <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="1.6"/>
+      <svg
+        width="40"
+        height="40"
+        viewBox="0 0 24 24"
+        fill="none"
+        className="text-emerald-300"
+      >
+        <path
+          d="M5 8h14M5 12h10M5 16h7"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <circle
+          cx="18"
+          cy="16"
+          r="3"
+          stroke="currentColor"
+          strokeWidth="1.6"
+        />
       </svg>
     </div>
   );
@@ -165,11 +270,24 @@ function LoginView({ onOK, onSwitch }) {
     <section className="max-w-md mx-auto">
       <Card title="Login" subtitle="Willkommen zurück">
         <form className="grid gap-3" onSubmit={submit}>
-          <TextField label="E-Mail" value={email} onChange={setEmail} autoComplete="username" />
-          <TextField label="Passwort" type="password" value={pw} onChange={setPw} autoComplete="current-password" />
+          <TextField
+            label="E-Mail"
+            value={email}
+            onChange={setEmail}
+            autoComplete="username"
+          />
+          <TextField
+            label="Passwort"
+            type="password"
+            value={pw}
+            onChange={setPw}
+            autoComplete="current-password"
+          />
           {err ? <div className="text-rose-400 text-sm">{err}</div> : null}
           <div className="flex gap-2">
-            <Button variant="solid" type="submit">Einloggen</Button>
+            <Button variant="solid" type="submit">
+              Einloggen
+            </Button>
             <Button onClick={onSwitch}>Registrieren</Button>
           </div>
         </form>
@@ -202,11 +320,24 @@ function RegisterView({ onOK, onSwitch }) {
     <section className="max-w-md mx-auto">
       <Card title="Registrieren" subtitle="Starte los">
         <form className="grid gap-3" onSubmit={submit}>
-          <TextField label="E-Mail" value={email} onChange={setEmail} autoComplete="username" />
-          <TextField label="Passwort" type="password" value={pw} onChange={setPw} autoComplete="new-password" />
+          <TextField
+            label="E-Mail"
+            value={email}
+            onChange={setEmail}
+            autoComplete="username"
+          />
+          <TextField
+            label="Passwort"
+            type="password"
+            value={pw}
+            onChange={setPw}
+            autoComplete="new-password"
+          />
           {err ? <div className="text-rose-400 text-sm">{err}</div> : null}
           <div className="flex gap-2">
-            <Button variant="solid" type="submit">Konto anlegen</Button>
+            <Button variant="solid" type="submit">
+              Konto anlegen
+            </Button>
             <Button onClick={onSwitch}>Zum Login</Button>
           </div>
         </form>
@@ -221,7 +352,9 @@ function AccountView({ session }) {
   return (
     <section className="max-w-xl mx-auto">
       <Card title="Konto" subtitle="Deine Session">
-        <div className="text-sm text-neutral-300">E-Mail: <span className="text-neutral-100">{mail}</span></div>
+        <div className="text-sm text-neutral-300">
+          E-Mail: <span className="text-neutral-100">{mail}</span>
+        </div>
       </Card>
     </section>
   );
@@ -229,7 +362,7 @@ function AccountView({ session }) {
 
 /* ---------- Haupt-App ---------- */
 export default function App() {
-  const [view, setView] = useState("home"); 
+  const [view, setView] = useState("home");
   // Bestehende Views bleiben unangetastet.
   // NEU: Bewerbungstrainer-Views:
   // "trainer_upload" | "trainer_persona" | "trainer_interview" | "trainer_report"
@@ -241,6 +374,7 @@ export default function App() {
   const [jdId, setJdId] = useState(null);
   const [cvId, setCvId] = useState(null);
   const [interviewId, setInterviewId] = useState(null);
+  const [coachPersona, setCoachPersona] = useState("sachlich");
 
   // Session + Listener
   useEffect(() => {
@@ -249,7 +383,9 @@ export default function App() {
       const { data } = await supabase.auth.getSession();
       if (active) setSession(data.session ?? null);
     })();
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) =>
+      setSession(sess ?? null)
+    );
     return () => sub?.subscription?.unsubscribe?.();
   }, []);
 
@@ -257,7 +393,10 @@ export default function App() {
   useEffect(() => {
     let stop = false;
     (async () => {
-      if (!session?.user?.id) { setRole(null); return; }
+      if (!session?.user?.id) {
+        setRole(null);
+        return;
+      }
       const { data, error } = await supabase
         .from("profiles")
         .select("role")
@@ -265,7 +404,9 @@ export default function App() {
         .single();
       if (!stop) setRole(error ? null : data?.role ?? null);
     })();
-    return () => { stop = true; };
+    return () => {
+      stop = true;
+    };
   }, [session]);
 
   const greeting = useMemo(() => {
@@ -281,7 +422,10 @@ export default function App() {
 
   const TopBar = () => (
     <header className="mb-10 flex flex-col items-center gap-4 md:flex-row md:items-center md:justify-between">
-      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left" style={{ color: theme.gold }}>
+      <h1
+        className="text-4xl md:text-5xl font-extrabold tracking-tight text-center md:text-left"
+        style={{ color: theme.gold }}
+      >
         SmartBiz Suite
       </h1>
       <nav className="mt-3 flex flex-wrap items-center gap-2">
@@ -289,11 +433,17 @@ export default function App() {
         {session ? (
           <>
             <Button onClick={() => setView("account")}>Konto</Button>
-            {role === "admin" && <Button onClick={() => setView("admin")}>Admin</Button>}
-            <Button variant="solid" onClick={logout}>Logout</Button>
+            {role === "admin" && (
+              <Button onClick={() => setView("admin")}>Admin</Button>
+            )}
+            <Button variant="solid" onClick={logout}>
+              Logout
+            </Button>
           </>
         ) : (
-          <Button variant="solid" onClick={() => setView("login")}>Login</Button>
+          <Button variant="solid" onClick={() => setView("login")}>
+            Login
+          </Button>
         )}
       </nav>
     </header>
@@ -304,11 +454,19 @@ export default function App() {
     try {
       const { data: u } = await supabase.auth.getUser();
       const userId = u?.user?.id;
-      if (!userId) { setView("login"); return; }
+      if (!userId) {
+        setView("login");
+        return;
+      }
 
       const { data, error } = await supabase
         .from("interviews")
-        .insert({ user_id: userId, persona, jd_upload: jdId, cv_upload: cvId })
+        .insert({
+          user_id: userId,
+          persona,
+          jd_upload: jdId,
+          cv_upload: cvId,
+        })
         .select("id")
         .single();
       if (error) throw error;
@@ -327,10 +485,16 @@ export default function App() {
 
         {/* AUTH (bestehend) */}
         {!session && view === "login" && (
-          <LoginView onOK={() => setView("home")} onSwitch={() => setView("register")} />
+          <LoginView
+            onOK={() => setView("home")}
+            onSwitch={() => setView("register")}
+          />
         )}
         {!session && view === "register" && (
-          <RegisterView onOK={() => setView("login")} onSwitch={() => setView("login")} />
+          <RegisterView
+            onOK={() => setView("login")}
+            onSwitch={() => setView("login")}
+          />
         )}
 
         {/* HOME – Karten (bestehende + NEU Bewerbungstrainer) */}
@@ -338,7 +502,9 @@ export default function App() {
           <main className="space-y-10">
             <section className="max-w-3xl mx-auto">
               <Card>
-                <p className="text-lg md:text-xl font-medium text-neutral-300">{greeting}</p>
+                <p className="text-lg md:text-xl font-medium text-neutral-300">
+                  {greeting}
+                </p>
               </Card>
             </section>
 
@@ -363,7 +529,7 @@ export default function App() {
                   Icon={IconFlow}
                 />
 
-                {/* ==== NEU: Bewerbungstrainer als vierte Karte ==== */}
+                {/* NEU: Bewerbungstrainer als vierte Karte */}
                 <FeatureCard
                   title="Bewerbungstrainer"
                   subtitle="JD + CV hochladen, realistisch interviewt werden"
@@ -379,24 +545,36 @@ export default function App() {
         {view === "pricefinder" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="pricefinder" />
-            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
-            <div className="mt-6"><PriceFinder /></div>
+            <div className="mt-3">
+              <Button onClick={() => setView("home")}>← Zurück</Button>
+            </div>
+            <div className="mt-6">
+              <PriceFinder />
+            </div>
           </section>
         )}
 
         {view === "messagematcher" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="messagematcher" />
-            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
-            <div className="mt-6"><MessageMatcher /></div>
+            <div className="mt-3">
+              <Button onClick={() => setView("home")}>← Zurück</Button>
+            </div>
+            <div className="mt-6">
+              <MessageMatcher />
+            </div>
           </section>
         )}
 
         {view === "contentflow" && (
-          <section className="max-w-5xl mx-auto">
+          <section className="max-w-5xl mx_auto">
             <Crumb title="contentflow" />
-            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
-            <div className="mt-6"><ContentFlow /></div>
+            <div className="mt-3">
+              <Button onClick={() => setView("home")}>← Zurück</Button>
+            </div>
+            <div className="mt-6">
+              <ContentFlow />
+            </div>
           </section>
         )}
 
@@ -404,10 +582,16 @@ export default function App() {
         {session && view === "trainer_upload" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="bewerbungstrainer / upload" />
-            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-3">
+              <Button onClick={() => setView("home")}>← Zurück</Button>
+            </div>
             <div className="mt-6">
               <Upload
-                onDone={({ jdId, cvId }) => { setJdId(jdId); setCvId(cvId); setView("trainer_persona"); }}
+                onDone={({ jdId, cvId }) => {
+                  setJdId(jdId);
+                  setCvId(cvId);
+                  setView("trainer_persona");
+                }}
               />
             </div>
           </section>
@@ -416,9 +600,20 @@ export default function App() {
         {session && view === "trainer_persona" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="bewerbungstrainer / persona" />
-            <div className="mt-3"><Button onClick={() => setView("trainer_upload")}>← Zurück</Button></div>
+            <div className="mt-3">
+              <Button onClick={() => setView("trainer_upload")}>
+                ← Zurück
+              </Button>
+            </div>
             <div className="mt-6">
-              <Persona onPick={handlePickPersona} />
+              <Persona
+                initialPersona={coachPersona}
+                onBack={() => setView("trainer_upload")}
+                onNext={(personaId) => {
+                  setCoachPersona(personaId);
+                  handlePickPersona(personaId);
+                }}
+              />
             </div>
           </section>
         )}
@@ -426,11 +621,15 @@ export default function App() {
         {session && view === "trainer_interview" && interviewId && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="bewerbungstrainer / interview" />
-            <div className="mt-3"><Button onClick={() => setView("home")}>← Abbrechen</Button></div>
+            <div className="mt-3">
+              <Button onClick={() => setView("home")}>← Abbrechen</Button>
+            </div>
             <div className="mt-6">
               <Interview interviewId={interviewId} />
               <div className="mt-6">
-                <Button onClick={() => setView("trainer_report")}>Interview beenden → Report</Button>
+                <Button onClick={() => setView("trainer_report")}>
+                  Interview beenden → Report
+                </Button>
               </div>
             </div>
           </section>
@@ -439,8 +638,12 @@ export default function App() {
         {session && view === "trainer_report" && interviewId && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="bewerbungstrainer / report" />
-            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
-            <div className="mt-6"><Report interviewId={interviewId} /></div>
+            <div className="mt-3">
+              <Button onClick={() => setView("home")}>← Zurück</Button>
+            </div>
+            <div className="mt-6">
+              <Report interviewId={interviewId} />
+            </div>
           </section>
         )}
 
@@ -450,7 +653,9 @@ export default function App() {
         {session && role === "admin" && view === "admin" && (
           <section className="max-w-5xl mx-auto">
             <Crumb title="admin" />
-            <div className="mt-3"><Button onClick={() => setView("home")}>← Zurück</Button></div>
+            <div className="mt-3">
+              <Button onClick={() => setView("home")}>← Zurück</Button>
+            </div>
             <Admin onBack={() => setView("home")} />
           </section>
         )}
